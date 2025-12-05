@@ -125,12 +125,14 @@ export default function About() {
               key={founder.name}
               className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 md:p-8 border border-white/20 hover:border-purple-500/50 transition-all duration-300"
             >
-              {/* Photo/Avatar */}
+              {/* Photo */}
               <div className="relative mb-6">
-                <div className={`w-48 h-48 mx-auto rounded-full overflow-hidden border-4 border-purple-500/50 shadow-lg shadow-purple-500/20 bg-gradient-to-br ${founder.gradientFrom} ${founder.gradientTo}`}>
-                  <div className="w-full h-full flex items-center justify-center text-white text-5xl font-bold">
-                    {founder.initials}
-                  </div>
+                <div className="w-48 h-48 mx-auto rounded-full overflow-hidden border-4 border-purple-500/50 shadow-lg shadow-purple-500/20">
+                  <img
+                    src={founder.image}
+                    alt={founder.name}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               </div>
 
