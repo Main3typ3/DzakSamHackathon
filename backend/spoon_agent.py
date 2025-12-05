@@ -11,11 +11,20 @@ This module integrates with SpoonOS to provide:
 import os
 import json
 from typing import Optional, Dict, Any, List
-from openai import OpenAI
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
-openai_client = OpenAI(api_key=OPENAI_API_KEY)
+openai_client = None
+
+def get_openai_client():
+    """Get or create OpenAI client lazily."""
+    global openai_client
+    if openai_client is None:
+        from openai import OpenAI
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if api_key:
+            openai_client = OpenAI(api_key=api_key)
+    return openai_client
 
 
 class BlockchainTool:
@@ -356,7 +365,11 @@ When asked about specific topics, use the tool data to enhance your responses.""
         messages.extend(self.conversation_history[-10:])
         
         try:
-            response = openai_client.chat.completions.create(
+            client = get_openai_client()
+            if client is None:
+                return "I need an OpenAI API key to answer your questions. Please add your OPENAI_API_KEY in the Secrets tab."
+            
+            response = client.chat.completions.create(
                 model="gpt-4o",
                 messages=messages,
                 max_completion_tokens=1024
@@ -383,7 +396,14 @@ Was Correct: {"Yes" if is_correct else "No"}
 Provide brief, encouraging feedback (2-3 sentences). If incorrect, explain why the correct answer is right without being discouraging. If correct, reinforce the learning."""
 
         try:
-            response = openai_client.chat.completions.create(
+            client = get_openai_client()
+            if client is None:
+                if is_correct:
+                    return "Great job! You got it right!"
+                else:
+                    return f"Not quite! The correct answer is: {correct_answer}"
+            
+            response = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
                     {"role": "system", "content": "You are a supportive blockchain educator giving quiz feedback."},
