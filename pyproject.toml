@@ -1,13 +1,16 @@
 [project]
-name = "repl-nix-workspace"
-version = "0.1.0"
-description = "Add your description here"
+name = "chainquest-academy"
+version = "1.0.0"
+description = "A gamified blockchain education platform for the Scoop AI Hackathon"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi>=0.123.9",
-    "httpx>=0.28.1",
-    "openai>=2.9.0",
-    "pydantic>=2.12.5",
-    "python-dotenv>=1.2.1",
-    "uvicorn>=0.38.0",
+    "fastapi>=0.115.0",
+    "httpx>=0.28.0",
+    "openai>=1.50.0",
+    "pydantic>=2.9.0",
+    "python-dotenv>=1.0.0",
+    "uvicorn>=0.30.0",
 ]
+
+[project.urls]
+Repository = "https://github.com/Main3typ3/DzakSamHackathon"

@@ -50,3 +50,17 @@ Thumbs.db
 *.log
 data/*.json
 !data/.gitkeep
+
+# Replit (if deployed from Replit)
+.replit
+replit.nix
+.local/
+.config/
+.upm/
+.cache/
+uv.lock
+
+# Build outputs
+*.pyc
+.coverage
+htmlcov/
