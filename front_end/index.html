@@ -1,35 +1,45 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-    <link rel="stylesheet" href="style.css">
     <title>Web3 Tutor</title>
-    <style>
-        body { font-family: Arial; padding: 20px; }
-        textarea { width: 100%; height: 80px; }
-        #log { border: 1px solid #ccc; padding: 10px; margin-top: 20px; }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<h2>Ask your Web3 Tutor</h2>
+<div class="container">
+    <h2>Ask your Web3 Tutor</h2>
 
-<textarea id="prompt">What is blockchain?</textarea><br><br>
-<button onclick="ask()">Ask</button>
+    <textarea id="prompt" placeholder="Ask something like: What is blockchain?"></textarea>
+    <button onclick="ask()">Ask</button>
 
-<div id="log"></div>
+    <div id="log"></div>
+</div>
 
 <script>
 async function ask() {
     const prompt = document.getElementById("prompt").value;
-    let res = await fetch("http://localhost:4000/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId:"demo", prompt })
-    });
-    const data = await res.json();
-    document.getElementById("log").innerHTML =
-      "<b>Answer:</b><br>" + data.answer;
+    
+    document.getElementById("log").innerHTML = "<i>Thinking...</i>";
+
+    try {
+        const res = await fetch("http://localhost:4000/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                userId: "demoUser",
+                prompt: prompt
+            })
+        });
+
+        const data = await res.json();
+        document.getElementById("log").innerHTML =
+            "<b>Answer:</b><br>" + (data.answer || "No response received.");
+    } 
+    catch (error) {
+        console.error(error);
+        document.getElementById("log").innerHTML =
+            "⚠ Could not reach backend.";
+    }
 }
 </script>
 
