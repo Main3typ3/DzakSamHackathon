@@ -7,6 +7,7 @@ import Module from './pages/Module';
 import Lesson from './pages/Lesson';
 import Chat from './pages/Chat';
 import Progress from './pages/Progress';
+import About from './pages/About';
 import { getUserStats } from './api';
 
 function App() {
@@ -40,6 +41,7 @@ function App() {
         <Route path="/lesson/:lessonId" element={<Lesson />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/progress" element={<Progress />} />
+        <Route path="/about" element={<About />} />
       </Routes>
     </div>
   );

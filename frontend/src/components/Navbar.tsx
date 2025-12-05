@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { BookOpen, MessageSquare, Trophy, Home, Zap } from 'lucide-react';
+import { BookOpen, MessageSquare, Trophy, Home, Zap, Users } from 'lucide-react';
 
 interface NavbarProps {
   xp?: number;
@@ -16,6 +16,7 @@ export default function Navbar({ xp = 0, level = 1 }: NavbarProps) {
     { path: '/learn', icon: BookOpen, label: 'Learn' },
     { path: '/chat', icon: MessageSquare, label: 'AI Tutor' },
     { path: '/progress', icon: Trophy, label: 'Progress' },
+    { path: '/about', icon: Users, label: 'About' },
   ];
 
   return (
