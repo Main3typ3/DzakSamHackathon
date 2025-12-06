@@ -324,6 +324,157 @@ Teaching Style:
 Always stay on topic about blockchain and Web3. If asked about unrelated topics, gently redirect to blockchain education.`;
 
 // ============================================
+// ADVENTURES DATA
+// ============================================
+
+const ADVENTURES = [
+  {
+    id: "chapter_1",
+    title: "The Lost Wallet",
+    description: "Your journey begins when you discover a mysterious wallet address. Learn the fundamentals of blockchain and wallets to recover it.",
+    icon: "🔑",
+    color: "from-blue-500 to-cyan-500",
+    challenges: [
+      {
+        id: "ch1_q1",
+        question: "What is the fundamental feature that makes blockchain secure and trustworthy?",
+        choices: [
+          "It's controlled by a single powerful company",
+          "It's a decentralized, distributed ledger",
+          "It uses the fastest servers in the world",
+          "It requires government approval"
+        ],
+        correct: 1,
+        xp_reward: 25
+      },
+      {
+        id: "ch1_q2",
+        question: "Which key in a cryptocurrency wallet must be kept absolutely secret?",
+        choices: [
+          "The public key",
+          "The private key",
+          "Both keys should be shared",
+          "Neither key matters"
+        ],
+        correct: 1,
+        xp_reward: 30
+      },
+      {
+        id: "ch1_q3",
+        question: "What is the most secure way to store cryptocurrency for long-term holding?",
+        choices: [
+          "Keep it in an email",
+          "Hardware wallet or paper wallet (cold storage)",
+          "Post it on social media",
+          "Share it with friends"
+        ],
+        correct: 1,
+        xp_reward: 35
+      }
+    ],
+    completion_xp: 50,
+    completion_badge: { id: "wallet_wizard", name: "Wallet Wizard", icon: "🔐", description: "Mastered wallet security", xp_reward: 50 }
+  },
+  {
+    id: "chapter_2",
+    title: "The Smart Contract Mystery",
+    description: "The coins are locked in a smart contract. Solve the contract's puzzles to unlock your treasure.",
+    icon: "📜",
+    color: "from-purple-500 to-pink-500",
+    challenges: [
+      {
+        id: "ch2_q1",
+        question: "What is a smart contract?",
+        choices: [
+          "A legal document for crypto",
+          "Self-executing code on the blockchain",
+          "A type of cryptocurrency",
+          "A wallet feature"
+        ],
+        correct: 1,
+        xp_reward: 30
+      },
+      {
+        id: "ch2_q2",
+        question: "Once deployed, can a smart contract be modified?",
+        choices: [
+          "Yes, anytime by anyone",
+          "No, they are immutable once deployed",
+          "Only by the government",
+          "Only on weekends"
+        ],
+        correct: 1,
+        xp_reward: 35
+      },
+      {
+        id: "ch2_q3",
+        question: "What is 'gas' in Ethereum?",
+        choices: [
+          "Fuel for mining machines",
+          "The fee paid to execute transactions",
+          "A type of token",
+          "A wallet feature"
+        ],
+        correct: 1,
+        xp_reward: 40
+      }
+    ],
+    completion_xp: 75,
+    completion_badge: { id: "contract_master", name: "Contract Master", icon: "📜", description: "Mastered smart contracts", xp_reward: 75 }
+  },
+  {
+    id: "chapter_3",
+    title: "The DeFi Treasure",
+    description: "Navigate the world of DeFi to multiply your treasure and become a true blockchain master.",
+    icon: "💎",
+    color: "from-green-500 to-emerald-500",
+    challenges: [
+      {
+        id: "ch3_q1",
+        question: "What does DeFi stand for?",
+        choices: [
+          "Digital Finance",
+          "Decentralized Finance",
+          "Defined Finance",
+          "Distributed Finance"
+        ],
+        correct: 1,
+        xp_reward: 35
+      },
+      {
+        id: "ch3_q2",
+        question: "What is a liquidity pool?",
+        choices: [
+          "A swimming pool for crypto",
+          "Tokens locked in a smart contract for trading",
+          "A type of wallet",
+          "A mining technique"
+        ],
+        correct: 1,
+        xp_reward: 40
+      },
+      {
+        id: "ch3_q3",
+        question: "What is 'yield farming'?",
+        choices: [
+          "Growing vegetables with crypto",
+          "Earning rewards by providing liquidity",
+          "Mining cryptocurrency",
+          "Buying NFTs"
+        ],
+        correct: 1,
+        xp_reward: 45
+      }
+    ],
+    completion_xp: 100,
+    completion_badge: { id: "defi_explorer", name: "DeFi Explorer", icon: "💎", description: "Conquered the DeFi realm", xp_reward: 100 }
+  }
+];
+
+// Adventure user progress storage
+const adventureProgress: { [userId: string]: { [chapterId: string]: { completed_challenges: string[]; completed: boolean } } } = {};
+
+// ============================================
 // USER DATA STORE (in-memory for demo)
 // ============================================
 
@@ -536,6 +687,217 @@ app.post("/quiz/submit", (req, res) => {
     results,
     xp_earned: xpEarned,
   });
+});
+
+// ============================================
+// ADVENTURES ENDPOINTS
+// ============================================
+
+// Get all adventures
+app.get("/adventures", (req, res) => {
+  const userId = (req.query.user_id as string) || "default";
+  const userProgress = adventureProgress[userId] || {};
+
+  const adventuresWithProgress = ADVENTURES.map((adventure, index) => {
+    const progress = userProgress[adventure.id] || { completed_challenges: [], completed: false };
+    
+    // Determine if unlocked (first chapter always unlocked, others need previous completed)
+    let unlocked = index === 0;
+    if (index > 0) {
+      const prevAdventure = ADVENTURES[index - 1];
+      const prevProgress = userProgress[prevAdventure.id];
+      unlocked = prevProgress?.completed || false;
+    }
+
+    return {
+      ...adventure,
+      unlocked,
+      completed: progress.completed,
+      user_progress: {
+        completed_challenges: progress.completed_challenges,
+        total_challenges: adventure.challenges.length,
+      },
+    };
+  });
+
+  res.json({ adventures: adventuresWithProgress });
+});
+
+// Get single adventure
+app.get("/adventures/:chapterId", (req, res) => {
+  const chapterId = req.params.chapterId;
+  const userId = (req.query.user_id as string) || "default";
+  
+  const adventure = ADVENTURES.find((a) => a.id === chapterId);
+  if (!adventure) {
+    res.status(404).json({ error: "Adventure not found" });
+    return;
+  }
+
+  const userProgress = adventureProgress[userId] || {};
+  const progress = userProgress[chapterId] || { completed_challenges: [], completed: false };
+
+  res.json({
+    adventure: {
+      ...adventure,
+      user_progress: {
+        completed_challenges: progress.completed_challenges,
+        total_challenges: adventure.challenges.length,
+      },
+    },
+  });
+});
+
+// Submit adventure answer
+app.post("/adventures/:chapterId/answer", (req, res) => {
+  const chapterId = req.params.chapterId;
+  const { challenge_id, answer, user_id } = req.body;
+  const userId = user_id || "default";
+
+  const adventure = ADVENTURES.find((a) => a.id === chapterId);
+  if (!adventure) {
+    res.status(404).json({ error: "Adventure not found" });
+    return;
+  }
+
+  const challenge = adventure.challenges.find((c) => c.id === challenge_id);
+  if (!challenge) {
+    res.status(404).json({ error: "Challenge not found" });
+    return;
+  }
+
+  // Initialize user progress if needed
+  if (!adventureProgress[userId]) {
+    adventureProgress[userId] = {};
+  }
+  if (!adventureProgress[userId][chapterId]) {
+    adventureProgress[userId][chapterId] = { completed_challenges: [], completed: false };
+  }
+
+  const isCorrect = answer === challenge.correct;
+  const progress = adventureProgress[userId][chapterId];
+
+  // Add to completed challenges if correct and not already completed
+  if (isCorrect && !progress.completed_challenges.includes(challenge_id)) {
+    progress.completed_challenges.push(challenge_id);
+    
+    // Update user XP
+    const user = getOrCreateUser(userId);
+    user.xp += challenge.xp_reward;
+    user.level = Math.floor(user.xp / 100) + 1;
+  }
+
+  // Check if chapter is complete
+  const chapterComplete = progress.completed_challenges.length === adventure.challenges.length;
+  if (chapterComplete && !progress.completed) {
+    progress.completed = true;
+    
+    // Award completion XP and badge
+    const user = getOrCreateUser(userId);
+    user.xp += adventure.completion_xp;
+    user.level = Math.floor(user.xp / 100) + 1;
+    
+    if (adventure.completion_badge && !user.badges.find((b) => b.id === adventure.completion_badge.id)) {
+      user.badges.push(adventure.completion_badge);
+    }
+  }
+
+  res.json({
+    correct: isCorrect,
+    xp_earned: isCorrect ? challenge.xp_reward : 0,
+    chapter_complete: chapterComplete,
+    completion_xp: chapterComplete ? adventure.completion_xp : 0,
+    new_badges: chapterComplete && adventure.completion_badge ? [adventure.completion_badge] : [],
+  });
+});
+
+// Generate a new module using AI
+app.post("/modules/generate", async (req, res) => {
+  const { topic } = req.body;
+
+  if (!topic) {
+    res.status(400).json({ error: "Topic is required" });
+    return;
+  }
+
+  try {
+    const model = getGeminiModel();
+
+    if (!model) {
+      res.status(503).json({
+        success: false,
+        error: "AI service not available. Please configure Gemini API key.",
+      });
+      return;
+    }
+
+    const prompt = `Generate a learning module about "${topic}" for a blockchain/crypto education platform.
+
+Return a JSON object with this exact structure:
+{
+  "id": "unique-id-based-on-topic",
+  "title": "Module Title",
+  "description": "Brief description of what the learner will learn",
+  "icon": "one of: cube, wallet, code, chart, coins, shield",
+  "color": "one of: from-blue-500 to-cyan-500, from-purple-500 to-pink-500, from-green-500 to-emerald-500, from-orange-500 to-red-500",
+  "lessons": [
+    {
+      "id": "lesson-1-id",
+      "title": "Lesson Title",
+      "duration": "X min",
+      "xp": 20,
+      "content": "Markdown content explaining the concept with headers, bullet points, and examples",
+      "quiz": [
+        {
+          "question": "Quiz question?",
+          "options": ["Option A", "Option B", "Option C", "Option D"],
+          "correct": 0
+        }
+      ]
+    }
+  ]
+}
+
+Create 2-3 lessons with 1-2 quiz questions each. Make the content educational and engaging.
+Only return valid JSON, no markdown code blocks or extra text.`;
+
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const text = response.text();
+
+    // Try to parse the JSON response
+    let moduleData;
+    try {
+      // Remove any markdown code blocks if present
+      const cleanedText = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      moduleData = JSON.parse(cleanedText);
+    } catch {
+      res.status(500).json({
+        success: false,
+        error: "Failed to parse AI response. Please try again.",
+      });
+      return;
+    }
+
+    // Add progress tracking
+    moduleData.progress = {
+      completed: 0,
+      total: moduleData.lessons?.length || 0,
+      percentage: 0,
+    };
+
+    res.json({
+      success: true,
+      module: moduleData,
+      message: `Successfully generated module: ${moduleData.title}`,
+    });
+  } catch (error) {
+    console.error("Generate module error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to generate module. Please try again.",
+    });
+  }
 });
 
 // Chat with AI
