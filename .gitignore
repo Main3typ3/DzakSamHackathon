@@ -20,6 +20,7 @@ wheels/
 .installed.cfg
 *.egg
 .env
+!frontend/.env.production
 .venv
 env/
 venv/
@@ -64,3 +65,10 @@ uv.lock
 *.pyc
 .coverage
 htmlcov/
+
+# Firebase
+functions/lib/
+functions/node_modules/
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
