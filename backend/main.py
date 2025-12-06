@@ -14,9 +14,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
-from spoon_agent import get_agent
-from data_store import get_store
-from lessons import get_all_modules, get_module, get_lesson, get_all_lessons
+from backend.spoon_agent import get_agent
+from backend.data_store import get_store
+from backend.lessons import get_all_modules, get_module, get_lesson, get_all_lessons
 
 app = FastAPI(
     title="ChainQuest Academy API",
