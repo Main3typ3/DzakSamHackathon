@@ -12,19 +12,20 @@ import os
 import json
 from typing import Optional, Dict, Any, List
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-openai_client = None
+gemini_model = None
 
-def get_openai_client():
-    """Get or create OpenAI client lazily."""
-    global openai_client
-    if openai_client is None:
-        from openai import OpenAI
-        api_key = os.environ.get("OPENAI_API_KEY")
+def get_gemini_model():
+    """Get or create Gemini model lazily."""
+    global gemini_model
+    if gemini_model is None:
+        import google.generativeai as genai
+        api_key = os.environ.get("GEMINI_API_KEY")
         if api_key:
-            openai_client = OpenAI(api_key=api_key)
-    return openai_client
+            genai.configure(api_key=api_key)
+            gemini_model = genai.GenerativeModel('gemini-2.0-flash')
+    return gemini_model
 
 
 class BlockchainTool:
@@ -365,17 +366,20 @@ When asked about specific topics, use the tool data to enhance your responses.""
         messages.extend(self.conversation_history[-10:])
         
         try:
-            client = get_openai_client()
-            if client is None:
-                return "I need an OpenAI API key to answer your questions. Please add your OPENAI_API_KEY in the Secrets tab."
+            model = get_gemini_model()
+            if model is None:
+                return "I need a Gemini API key to answer your questions. Please add your GEMINI_API_KEY in the .env file."
             
-            response = client.chat.completions.create(
-                model="gpt-4o",
-                messages=messages,
-                max_completion_tokens=1024
-            )
+            # Build the prompt for Gemini
+            full_prompt = self.system_prompt + tool_context + "\n\n"
+            for msg in self.conversation_history[-10:]:
+                role = "User" if msg["role"] == "user" else "Assistant"
+                full_prompt += f"{role}: {msg['content']}\n\n"
+            full_prompt += "Assistant:"
             
-            assistant_message = response.choices[0].message.content
+            response = model.generate_content(full_prompt)
+            
+            assistant_message = response.text
             self.conversation_history.append({"role": "assistant", "content": assistant_message})
             
             return assistant_message
@@ -386,7 +390,9 @@ When asked about specific topics, use the tool data to enhance your responses.""
     
     def generate_quiz_feedback(self, question: str, user_answer: str, correct_answer: str, is_correct: bool) -> str:
         """Generate AI-powered feedback for quiz answers."""
-        prompt = f"""The student answered a blockchain quiz question.
+        prompt = f"""You are a supportive blockchain educator giving quiz feedback.
+
+The student answered a blockchain quiz question.
 
 Question: {question}
 Student's Answer: {user_answer}
@@ -396,22 +402,15 @@ Was Correct: {"Yes" if is_correct else "No"}
 Provide brief, encouraging feedback (2-3 sentences). If incorrect, explain why the correct answer is right without being discouraging. If correct, reinforce the learning."""
 
         try:
-            client = get_openai_client()
-            if client is None:
+            model = get_gemini_model()
+            if model is None:
                 if is_correct:
                     return "Great job! You got it right!"
                 else:
                     return f"Not quite! The correct answer is: {correct_answer}"
             
-            response = client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": "You are a supportive blockchain educator giving quiz feedback."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_completion_tokens=256
-            )
-            return response.choices[0].message.content
+            response = model.generate_content(prompt)
+            return response.text
         except Exception as e:
             if is_correct:
                 return "Great job! You got it right!"
