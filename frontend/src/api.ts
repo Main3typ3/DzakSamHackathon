@@ -130,3 +130,72 @@ export const getAvailableTools = async () => {
   const response = await api.get('/tools/list');
   return response.data;
 };
+
+// Adventure Mode API
+export interface Adventure {
+  id: string;
+  title: string;
+  description: string;
+  narrative_intro: string;
+  challenges: Challenge[];
+  narrative_conclusion: string;
+  completion_xp: number;
+  completion_badge?: string;
+  completed?: boolean;
+  user_progress?: {
+    completed_challenges: string[];
+    score: number;
+    total_challenges: number;
+  };
+}
+
+export interface Challenge {
+  id: string;
+  type: string;
+  npc: string;
+  narrative: string;
+  question: string;
+  choices: string[];
+  correct: number;
+  feedback_correct: string;
+  feedback_incorrect: string;
+  xp_reward: number;
+}
+
+export interface AdventureResponse {
+  is_correct: boolean;
+  feedback: string;
+  xp_gained: number;
+  chapter_complete: boolean;
+  score: number;
+  total_challenges: number;
+  completion_xp?: number;
+  leveled_up?: boolean;
+  new_level?: number;
+  new_badges?: Badge[];
+}
+
+export const getAdventures = async (userId = 'default'): Promise<Adventure[]> => {
+  const response = await api.get(`/adventures?user_id=${userId}`);
+  return response.data.adventures;
+};
+
+export const getAdventure = async (chapterId: string, userId = 'default'): Promise<Adventure> => {
+  const response = await api.get(`/adventures/${chapterId}?user_id=${userId}`);
+  return response.data.adventure;
+};
+
+export const submitAdventureAnswer = async (
+  chapterId: string,
+  challengeId: string,
+  answer: number,
+  userId = 'default'
+): Promise<AdventureResponse> => {
+  const response = await api.post(`/adventures/${chapterId}/answer`, {
+    chapter_id: chapterId,
+    challenge_id: challengeId,
+    answer,
+    user_id: userId,
+  });
+  return response.data;
+};
