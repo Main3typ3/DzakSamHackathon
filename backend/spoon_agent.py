@@ -12,19 +12,20 @@ import os
 import json
 from typing import Optional, Dict, Any, List
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-openai_client = None
+gemini_model = None
 
-def get_openai_client():
-    """Get or create OpenAI client lazily."""
-    global openai_client
-    if openai_client is None:
-        from openai import OpenAI
-        api_key = os.environ.get("OPENAI_API_KEY")
+def get_gemini_model():
+    """Get or create Gemini model lazily."""
+    global gemini_model
+    if gemini_model is None:
+        import google.generativeai as genai
+        api_key = os.environ.get("GEMINI_API_KEY")
         if api_key:
-            openai_client = OpenAI(api_key=api_key)
-    return openai_client
+            genai.configure(api_key=api_key)
+            gemini_model = genai.GenerativeModel('gemini-2.0-flash')
+    return gemini_model
 
 
 class BlockchainTool:
@@ -320,6 +321,27 @@ Guidelines:
 
 You have access to blockchain tools that provide structured educational content.
 When asked about specific topics, use the tool data to enhance your responses."""
+        
+        self.game_master_prompt = """You are the Game Master of ChainQuest Academy's Blockchain Quest!
+
+You guide players through an interactive story-based learning adventure. You embody various NPCs:
+- Satoshi Sage: Wise mentor, patient and knowledgeable
+- Vitalik Venture: Clever trader, slightly cocky but helpful
+- Crypto Guardian: Serious security expert, protective
+- DeFi Delilah: Enthusiastic DeFi explorer, adventurous
+
+Your role as Game Master:
+1. Stay in character when roleplaying NPCs
+2. Make learning feel like an adventure
+3. Provide narrative feedback that advances the story
+4. Celebrate victories and encourage after setbacks
+5. Keep responses engaging and story-focused
+
+Guidelines:
+- Use dramatic, narrative language
+- Keep responses brief (2-4 sentences)
+- Always stay in character
+- Balance education with entertainment"""
     
     def use_tool(self, operation: str, params: Optional[Dict] = None) -> Dict[str, Any]:
         """
@@ -329,11 +351,16 @@ When asked about specific topics, use the tool data to enhance your responses.""
         result = self.blockchain_tool.execute(operation, params)
         return result
     
-    def chat(self, user_message: str, include_tool_context: bool = True) -> str:
+    def chat(self, user_message: str, include_tool_context: bool = True, game_master_mode: bool = False) -> str:
         """
         Process a chat message through the SpoonOS → LLM pipeline.
         
         Flow: User Input → Agent → SpoonOS Tool (optional) → LLM → Response
+        
+        Args:
+            user_message: The user's message
+            include_tool_context: Whether to include blockchain tool data
+            game_master_mode: Whether to use Game Master persona for adventure mode
         """
         tool_context = ""
         
@@ -361,21 +388,27 @@ When asked about specific topics, use the tool data to enhance your responses.""
         
         self.conversation_history.append({"role": "user", "content": user_message})
         
-        messages = [{"role": "system", "content": self.system_prompt + tool_context}]
+        # Choose prompt based on mode
+        active_prompt = self.game_master_prompt if game_master_mode else self.system_prompt
+        
+        messages = [{"role": "system", "content": active_prompt + tool_context}]
         messages.extend(self.conversation_history[-10:])
         
         try:
-            client = get_openai_client()
-            if client is None:
-                return "I need an OpenAI API key to answer your questions. Please add your OPENAI_API_KEY in the Secrets tab."
+            model = get_gemini_model()
+            if model is None:
+                return "I need a Gemini API key to answer your questions. Please add your GEMINI_API_KEY in the .env file."
             
-            response = client.chat.completions.create(
-                model="gpt-4o",
-                messages=messages,
-                max_completion_tokens=1024
-            )
+            # Build the prompt for Gemini
+            full_prompt = active_prompt + tool_context + "\n\n"
+            for msg in self.conversation_history[-10:]:
+                role = "User" if msg["role"] == "user" else "Assistant"
+                full_prompt += f"{role}: {msg['content']}\n\n"
+            full_prompt += "Assistant:"
             
-            assistant_message = response.choices[0].message.content
+            response = model.generate_content(full_prompt)
+            
+            assistant_message = response.text
             self.conversation_history.append({"role": "assistant", "content": assistant_message})
             
             return assistant_message
@@ -386,7 +419,9 @@ When asked about specific topics, use the tool data to enhance your responses.""
     
     def generate_quiz_feedback(self, question: str, user_answer: str, correct_answer: str, is_correct: bool) -> str:
         """Generate AI-powered feedback for quiz answers."""
-        prompt = f"""The student answered a blockchain quiz question.
+        prompt = f"""You are a supportive blockchain educator giving quiz feedback.
+
+The student answered a blockchain quiz question.
 
 Question: {question}
 Student's Answer: {user_answer}
@@ -396,27 +431,117 @@ Was Correct: {"Yes" if is_correct else "No"}
 Provide brief, encouraging feedback (2-3 sentences). If incorrect, explain why the correct answer is right without being discouraging. If correct, reinforce the learning."""
 
         try:
-            client = get_openai_client()
-            if client is None:
+            model = get_gemini_model()
+            if model is None:
                 if is_correct:
                     return "Great job! You got it right!"
                 else:
                     return f"Not quite! The correct answer is: {correct_answer}"
             
-            response = client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": "You are a supportive blockchain educator giving quiz feedback."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_completion_tokens=256
-            )
-            return response.choices[0].message.content
+            response = model.generate_content(prompt)
+            return response.text
         except Exception as e:
             if is_correct:
                 return "Great job! You got it right!"
             else:
                 return f"Not quite! The correct answer is: {correct_answer}"
+    
+    def generate_module(self, topic: str) -> Dict[str, Any]:
+        """
+        Generate a complete learning module using Gemini AI.
+        Creates lessons with content and 4-option quiz questions.
+        """
+        prompt = f"""You are an expert blockchain educator creating a learning module.
+
+Generate a complete learning module about: "{topic}"
+
+The module must be related to blockchain, cryptocurrency, Web3, or related technologies.
+
+Return ONLY valid JSON (no markdown, no code blocks) in this exact format:
+{{
+    "id": "unique-id-lowercase-with-hyphens",
+    "title": "Module Title",
+    "description": "Brief 1-2 sentence description of what students will learn",
+    "icon": "cube",
+    "color": "from-purple-500 to-pink-500",
+    "lessons": [
+        {{
+            "id": "unique-lesson-id",
+            "title": "Lesson Title",
+            "duration": "5 min",
+            "xp": 20,
+            "content": "# Lesson Title\\n\\nMarkdown content with headers, bullet points, and explanations. Make it educational and beginner-friendly. Include:\\n- Key concepts\\n- Examples\\n- Real-world applications",
+            "quiz": [
+                {{
+                    "question": "Question text?",
+                    "options": ["Option A", "Option B", "Option C", "Option D"],
+                    "correct": 0
+                }},
+                {{
+                    "question": "Another question?",
+                    "options": ["Option A", "Option B", "Option C", "Option D"],
+                    "correct": 2
+                }}
+            ]
+        }}
+    ]
+}}
+
+Requirements:
+- Generate exactly 3 lessons
+- Each lesson must have 2-3 quiz questions
+- Each quiz question must have exactly 4 options
+- "correct" is the 0-based index of the correct answer
+- "icon" must be one of: "cube", "wallet", "code", "chart", "shield", "globe", "zap", "layers"
+- "color" must be a Tailwind gradient like "from-COLOR-500 to-COLOR-500"
+- Content should be educational, accurate, and beginner-friendly
+- Use markdown formatting in content (headers, bullets, bold, code blocks)
+
+Return ONLY the JSON object, nothing else."""
+
+        try:
+            model = get_gemini_model()
+            if model is None:
+                return {"error": "Gemini API key not configured"}
+            
+            response = model.generate_content(prompt)
+            response_text = response.text.strip()
+            
+            # Clean up response - remove markdown code blocks if present
+            if response_text.startswith("```"):
+                lines = response_text.split("\n")
+                # Remove first line (```json) and last line (```)
+                response_text = "\n".join(lines[1:-1])
+            
+            # Parse JSON
+            module_data = json.loads(response_text)
+            
+            # Validate structure
+            required_fields = ["id", "title", "description", "icon", "color", "lessons"]
+            for field in required_fields:
+                if field not in module_data:
+                    return {"error": f"Missing required field: {field}"}
+            
+            # Validate lessons
+            for lesson in module_data["lessons"]:
+                lesson_fields = ["id", "title", "duration", "xp", "content", "quiz"]
+                for field in lesson_fields:
+                    if field not in lesson:
+                        return {"error": f"Lesson missing required field: {field}"}
+                
+                # Validate quiz questions
+                for quiz in lesson["quiz"]:
+                    if len(quiz.get("options", [])) != 4:
+                        return {"error": "Each quiz question must have exactly 4 options"}
+                    if not isinstance(quiz.get("correct"), int) or quiz["correct"] < 0 or quiz["correct"] > 3:
+                        return {"error": "Quiz 'correct' must be an integer 0-3"}
+            
+            return {"success": True, "module": module_data}
+            
+        except json.JSONDecodeError as e:
+            return {"error": f"Failed to parse generated module: {str(e)}"}
+        except Exception as e:
+            return {"error": f"Failed to generate module: {str(e)}"}
     
     def clear_history(self):
         """Clear conversation history."""

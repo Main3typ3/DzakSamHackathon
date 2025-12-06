@@ -16,7 +16,8 @@ from typing import Optional, List, Dict, Any
 
 from spoon_agent import get_agent
 from data_store import get_store
-from lessons import get_all_modules, get_module, get_lesson, get_all_lessons
+from lessons import get_all_modules, get_module, get_lesson, get_all_lessons, add_generated_module
+from adventures import get_adventure, get_all_adventures, get_npc
 
 app = FastAPI(
     title="ChainQuest Academy API",
@@ -60,6 +61,15 @@ class ToolRequest(BaseModel):
     params: Optional[Dict[str, Any]] = None
 
 
+class AdventureAnswerRequest(BaseModel):
+    chapter_id: str
+    challenge_id: str
+    answer: int
+class GenerateModuleRequest(BaseModel):
+    topic: str
+    user_id: Optional[str] = "default"
+
+
 @app.get("/")
 async def root():
     """Health check endpoint."""
@@ -91,6 +101,25 @@ async def list_modules(user_id: str = "default"):
         }
     
     return {"modules": modules}
+
+
+@app.post("/api/modules/generate")
+async def generate_module(request: GenerateModuleRequest):
+    """Generate a new learning module using AI."""
+    agent = get_agent()
+    result = agent.generate_module(request.topic)
+    
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    # Add the generated module to our module list
+    add_generated_module(result["module"])
+    
+    return {
+        "success": True,
+        "module": result["module"],
+        "message": f"Successfully generated module: {result['module']['title']}"
+    }
 
 
 @app.get("/api/modules/{module_id}")
@@ -291,6 +320,164 @@ async def get_user_progress(user_id: str = "default"):
         "level": user["level"],
         "modules": progress
     }
+
+
+@app.get("/api/adventures")
+async def list_adventures(user_id: str = "default"):
+    """Get all adventure chapters with user progress."""
+    adventures = get_all_adventures()
+    store = get_store()
+    user = store.get_or_create_user(user_id)
+    
+    # Add completion status and user progress
+    completed_chapters = user.get("completed_chapters", [])
+    adventure_progress = user.get("adventure_progress", {})
+    
+    for adventure in adventures:
+        adventure["completed"] = adventure["id"] in completed_chapters
+        # Add user progress for each adventure
+        chapter_progress = adventure_progress.get(adventure["id"], {})
+        adventure["user_progress"] = {
+            "completed_challenges": chapter_progress.get("completed_challenges", []),
+            "score": chapter_progress.get("score", 0),
+            "total_challenges": len(adventure.get("challenges", []))
+        }
+    
+    return {"adventures": adventures}
+
+
+@app.get("/api/adventures/{chapter_id}")
+async def get_adventure_chapter(chapter_id: str, user_id: str = "default"):
+    """Get a specific adventure chapter."""
+    adventure = get_adventure(chapter_id)
+    if not adventure:
+        raise HTTPException(status_code=404, detail="Adventure chapter not found")
+    
+    store = get_store()
+    user = store.get_or_create_user(user_id)
+    
+    # Add completion and progress status
+    completed_chapters = user.get("completed_chapters", [])
+    adventure["completed"] = chapter_id in completed_chapters
+    
+    # Get user's progress on challenges
+    adventure_progress = user.get("adventure_progress", {}).get(chapter_id, {})
+    adventure["user_progress"] = adventure_progress
+    
+    return {"adventure": adventure}
+
+
+@app.post("/api/adventures/{chapter_id}/answer")
+async def submit_adventure_answer(chapter_id: str, request: AdventureAnswerRequest):
+    """Submit an answer for an adventure challenge."""
+    adventure = get_adventure(chapter_id)
+    if not adventure:
+        raise HTTPException(status_code=404, detail="Adventure chapter not found")
+    
+    # Find the challenge
+    challenge = None
+    for ch in adventure["challenges"]:
+        if ch["id"] == request.challenge_id:
+            challenge = ch
+            break
+    
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    
+    # Check if answer is correct
+    is_correct = request.answer == challenge["correct"]
+    
+    # Get AI feedback with Game Master persona
+    agent = get_agent()
+    npc = get_npc(challenge["npc"])
+    
+    # Validate answer index
+    if not (0 <= request.answer < len(challenge['choices'])):
+        raise HTTPException(status_code=400, detail="Invalid answer index")
+    
+    try:
+        # Create Game Master prompt with validated data
+        user_answer = challenge['choices'][request.answer]
+        correct_answer = challenge['choices'][challenge['correct']]
+        
+        game_master_prompt = f"""You are {npc['name']}, a {npc['role']} in the Blockchain Quest adventure.
+Personality: {npc['personality']}
+Backstory: {npc['backstory']}
+
+The player just answered a question {'correctly' if is_correct else 'incorrectly'}.
+
+Question: {challenge['question']}
+Their answer: {user_answer}
+Correct answer: {correct_answer}
+
+Provide {'encouraging' if is_correct else 'teaching'} feedback in character as {npc['name']}.
+Keep it brief (2-3 sentences) and engaging."""
+        
+        ai_feedback = agent.chat(game_master_prompt, game_master_mode=True)
+    except Exception:
+        # Fallback to predefined feedback
+        ai_feedback = challenge["feedback_correct"] if is_correct else challenge["feedback_incorrect"]
+    
+    # Store progress
+    store = get_store()
+    user = store.get_or_create_user(request.user_id)
+    
+    # Initialize adventure progress structure
+    if "adventure_progress" not in user:
+        user["adventure_progress"] = {}
+    if chapter_id not in user["adventure_progress"]:
+        user["adventure_progress"][chapter_id] = {
+            "completed_challenges": [],
+            "score": 0,
+            "total_challenges": len(adventure["challenges"])
+        }
+    
+    # Update challenge completion
+    chapter_progress = user["adventure_progress"][chapter_id]
+    if request.challenge_id not in chapter_progress["completed_challenges"]:
+        chapter_progress["completed_challenges"].append(request.challenge_id)
+        if is_correct:
+            chapter_progress["score"] += 1
+    
+    # Check if chapter is complete
+    chapter_complete = len(chapter_progress["completed_challenges"]) >= len(adventure["challenges"])
+    
+    result = {
+        "is_correct": is_correct,
+        "feedback": ai_feedback,
+        "xp_gained": challenge["xp_reward"] if is_correct else 0,
+        "chapter_complete": chapter_complete,
+        "score": chapter_progress["score"],
+        "total_challenges": chapter_progress["total_challenges"]
+    }
+    
+    # Award XP for correct answers
+    if is_correct:
+        xp_result = store.add_xp(request.user_id, challenge["xp_reward"])
+        result["leveled_up"] = xp_result.get("leveled_up", False)
+        result["new_level"] = xp_result.get("new_level")
+    
+    # If chapter complete, award completion bonus
+    if chapter_complete and chapter_id not in user.get("completed_chapters", []):
+        if "completed_chapters" not in user:
+            user["completed_chapters"] = []
+        user["completed_chapters"].append(chapter_id)
+        
+        # Award completion XP and badge
+        completion_result = store.add_xp(request.user_id, adventure["completion_xp"])
+        result["completion_xp"] = adventure["completion_xp"]
+        result["leveled_up"] = completion_result.get("leveled_up", False)
+        result["new_level"] = completion_result.get("new_level")
+        
+        # Award badge if specified
+        if adventure.get("completion_badge"):
+            badge_result = store.award_badge(request.user_id, adventure["completion_badge"])
+            result["new_badges"] = badge_result.get("new_badges", [])
+    
+    # Save user progress
+    store.save_user(request.user_id, user)
+    
+    return result
 
 
 if __name__ == "__main__":

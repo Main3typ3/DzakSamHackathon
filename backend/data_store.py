@@ -313,6 +313,13 @@ class UserDataStore:
             "correct_answers": user.get("correct_answers", 0),
             "all_badges": list(BADGES.values())
         }
+    
+    def save_user(self, user_id: str, user_data: Dict[str, Any]) -> None:
+        """Save user data directly."""
+        users = load_json(USERS_FILE)
+        users[user_id] = user_data
+        users[user_id]["last_active"] = datetime.now().isoformat()
+        save_json(USERS_FILE, users)
 
 
 data_store = UserDataStore()
