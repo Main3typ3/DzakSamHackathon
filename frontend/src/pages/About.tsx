@@ -62,7 +62,7 @@ const founders: Founder[] = [
   },
   {
     name: "Sam Maine",
-    role: "Co-Founder & Designer",
+    role: "Co-Founder & Developer",
     image: "/team/sam.jpg",
     initials: "SM",
     gradientFrom: "from-blue-500",

@@ -1,8 +1,13 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Zap, BookOpen, MessageSquare, Trophy } from 'lucide-react';
+import { ArrowRight, Zap, BookOpen, MessageSquare, Trophy, Sparkles } from 'lucide-react';
 
 export default function Home() {
   const features = [
+    {
+      icon: Sparkles,
+      title: 'Adventure Mode',
+      description: 'Learn through an interactive story with AI Game Master guidance',
+    },
     {
       icon: BookOpen,
       title: 'Interactive Lessons',
@@ -17,11 +22,6 @@ export default function Home() {
       icon: Trophy,
       title: 'Earn Rewards',
       description: 'Gain XP, level up, and unlock achievement badges',
-    },
-    {
-      icon: Zap,
-      title: 'Real-Time Data',
-      description: 'Access blockchain information through SpoonOS crypto tools',
     },
   ];
 
@@ -53,11 +53,19 @@ export default function Home() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              to="/learn"
+              to="/adventures"
               className="btn-primary text-lg px-8 py-4 flex items-center space-x-2"
             >
-              <span>Start Learning</span>
+              <Sparkles className="w-5 h-5" />
+              <span>Start Adventure</span>
               <ArrowRight className="w-5 h-5" />
+            </Link>
+            <Link
+              to="/learn"
+              className="px-8 py-4 border border-purple-500/50 text-purple-300 rounded-lg hover:bg-purple-500/10 transition-all flex items-center space-x-2"
+            >
+              <BookOpen className="w-5 h-5" />
+              <span>Browse Lessons</span>
             </Link>
             <Link
               to="/chat"
