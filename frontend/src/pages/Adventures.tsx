@@ -29,7 +29,11 @@ export default function Adventures() {
 
   const isChapterUnlocked = (index: number) => {
     if (index === 0) return true;
-    return adventures[index - 1]?.completed || false;
+    // Verify all previous chapters are completed
+    for (let i = 0; i < index; i++) {
+      if (!adventures[i]?.completed) return false;
+    }
+    return true;
   };
 
   return (

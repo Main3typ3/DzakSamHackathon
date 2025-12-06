@@ -96,8 +96,10 @@ export default function AdventureMode() {
   };
 
   const handleContinueToNext = () => {
-    // Determine next chapter
-    const chapterNumber = parseInt(chapterId?.split('_')[1] || '1');
+    // Determine next chapter safely
+    const chapterMatch = chapterId?.match(/chapter_(\d+)/);
+    const chapterNumber = chapterMatch ? parseInt(chapterMatch[1]) : 1;
+    
     if (chapterNumber < 3) {
       navigate(`/adventure/chapter_${chapterNumber + 1}`);
     } else {

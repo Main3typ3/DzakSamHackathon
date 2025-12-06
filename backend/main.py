@@ -361,8 +361,15 @@ async def submit_adventure_answer(chapter_id: str, request: AdventureAnswerReque
     agent = get_agent()
     npc = get_npc(challenge["npc"])
     
+    # Validate answer index
+    if not (0 <= request.answer < len(challenge['choices'])):
+        raise HTTPException(status_code=400, detail="Invalid answer index")
+    
     try:
-        # Create Game Master prompt
+        # Create Game Master prompt with validated data
+        user_answer = challenge['choices'][request.answer]
+        correct_answer = challenge['choices'][challenge['correct']]
+        
         game_master_prompt = f"""You are {npc['name']}, a {npc['role']} in the Blockchain Quest adventure.
 Personality: {npc['personality']}
 Backstory: {npc['backstory']}
@@ -370,13 +377,13 @@ Backstory: {npc['backstory']}
 The player just answered a question {'correctly' if is_correct else 'incorrectly'}.
 
 Question: {challenge['question']}
-Their answer: {challenge['choices'][request.answer] if 0 <= request.answer < len(challenge['choices']) else 'Invalid'}
-Correct answer: {challenge['choices'][challenge['correct']]}
+Their answer: {user_answer}
+Correct answer: {correct_answer}
 
 Provide {'encouraging' if is_correct else 'teaching'} feedback in character as {npc['name']}.
 Keep it brief (2-3 sentences) and engaging."""
         
-        ai_feedback = agent.chat(game_master_prompt)
+        ai_feedback = agent.chat(game_master_prompt, game_master_mode=True)
     except Exception:
         # Fallback to predefined feedback
         ai_feedback = challenge["feedback_correct"] if is_correct else challenge["feedback_incorrect"]
