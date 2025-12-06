@@ -197,6 +197,9 @@ export const submitAdventureAnswer = async (
     answer,
     user_id: userId,
   });
+  return response.data;
+};
+
 export const generateModule = async (topic: string, userId = 'default'): Promise<{ success: boolean; module: Module; message: string }> => {
   const response = await api.post('/modules/generate', { topic, user_id: userId });
   return response.data;

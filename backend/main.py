@@ -17,6 +17,7 @@ from typing import Optional, List, Dict, Any
 from spoon_agent import get_agent
 from data_store import get_store
 from lessons import get_all_modules, get_module, get_lesson, get_all_lessons, add_generated_module
+from adventures import get_adventure, get_all_adventures, get_npc
 
 app = FastAPI(
     title="ChainQuest Academy API",
