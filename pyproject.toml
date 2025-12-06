@@ -1,0 +1,16 @@
+[project]
+name = "chainquest-academy"
+version = "1.0.0"
+description = "A gamified blockchain education platform for the Scoop AI Hackathon"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "httpx>=0.28.0",
+    "openai>=1.50.0",
+    "pydantic>=2.9.0",
+    "python-dotenv>=1.0.0",
+    "uvicorn>=0.30.0",
+]
+
+[project.urls]
+Repository = "https://github.com/Main3typ3/DzakSamHackathon"
