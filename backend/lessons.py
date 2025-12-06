@@ -5,6 +5,9 @@ Contains lessons, modules, and quizzes about blockchain.
 
 from typing import Dict, List, Any
 
+# Mutable list for dynamically generated modules
+GENERATED_MODULES: List[Dict[str, Any]] = []
+
 MODULES = [
     {
         "id": "blockchain",
@@ -806,13 +809,25 @@ Price feeds can be manipulated to exploit protocols.
 
 
 def get_all_modules() -> List[Dict[str, Any]]:
-    """Get all learning modules."""
-    return MODULES
+    """Get all learning modules including generated ones."""
+    return MODULES + GENERATED_MODULES
+
+
+def add_generated_module(module: Dict[str, Any]) -> None:
+    """Add a dynamically generated module."""
+    # Check if module with same ID already exists
+    for existing in GENERATED_MODULES:
+        if existing["id"] == module["id"]:
+            # Update existing module
+            GENERATED_MODULES.remove(existing)
+            break
+    GENERATED_MODULES.append(module)
 
 
 def get_module(module_id: str) -> Dict[str, Any]:
     """Get a specific module by ID."""
-    for module in MODULES:
+    all_modules = MODULES + GENERATED_MODULES
+    for module in all_modules:
         if module["id"] == module_id:
             return module
     return None
@@ -820,7 +835,8 @@ def get_module(module_id: str) -> Dict[str, Any]:
 
 def get_lesson(lesson_id: str) -> Dict[str, Any]:
     """Get a specific lesson by ID."""
-    for module in MODULES:
+    all_modules = MODULES + GENERATED_MODULES
+    for module in all_modules:
         for lesson in module["lessons"]:
             if lesson["id"] == lesson_id:
                 return {**lesson, "module_id": module["id"], "module_title": module["title"]}
@@ -830,7 +846,8 @@ def get_lesson(lesson_id: str) -> Dict[str, Any]:
 def get_all_lessons() -> List[Dict[str, Any]]:
     """Get all lessons across all modules."""
     lessons = []
-    for module in MODULES:
+    all_modules = MODULES + GENERATED_MODULES
+    for module in all_modules:
         for lesson in module["lessons"]:
             lessons.append({
                 **lesson,

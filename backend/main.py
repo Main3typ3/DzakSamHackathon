@@ -14,9 +14,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
-from backend.spoon_agent import get_agent
-from backend.data_store import get_store
-from backend.lessons import get_all_modules, get_module, get_lesson, get_all_lessons
+from spoon_agent import get_agent
+from data_store import get_store
+from lessons import get_all_modules, get_module, get_lesson, get_all_lessons, add_generated_module
 
 app = FastAPI(
     title="ChainQuest Academy API",
@@ -60,6 +60,11 @@ class ToolRequest(BaseModel):
     params: Optional[Dict[str, Any]] = None
 
 
+class GenerateModuleRequest(BaseModel):
+    topic: str
+    user_id: Optional[str] = "default"
+
+
 @app.get("/")
 async def root():
     """Health check endpoint."""
@@ -91,6 +96,25 @@ async def list_modules(user_id: str = "default"):
         }
     
     return {"modules": modules}
+
+
+@app.post("/api/modules/generate")
+async def generate_module(request: GenerateModuleRequest):
+    """Generate a new learning module using AI."""
+    agent = get_agent()
+    result = agent.generate_module(request.topic)
+    
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    # Add the generated module to our module list
+    add_generated_module(result["module"])
+    
+    return {
+        "success": True,
+        "module": result["module"],
+        "message": f"Successfully generated module: {result['module']['title']}"
+    }
 
 
 @app.get("/api/modules/{module_id}")

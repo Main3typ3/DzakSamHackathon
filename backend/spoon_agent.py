@@ -417,6 +417,103 @@ Provide brief, encouraging feedback (2-3 sentences). If incorrect, explain why t
             else:
                 return f"Not quite! The correct answer is: {correct_answer}"
     
+    def generate_module(self, topic: str) -> Dict[str, Any]:
+        """
+        Generate a complete learning module using Gemini AI.
+        Creates lessons with content and 4-option quiz questions.
+        """
+        prompt = f"""You are an expert blockchain educator creating a learning module.
+
+Generate a complete learning module about: "{topic}"
+
+The module must be related to blockchain, cryptocurrency, Web3, or related technologies.
+
+Return ONLY valid JSON (no markdown, no code blocks) in this exact format:
+{{
+    "id": "unique-id-lowercase-with-hyphens",
+    "title": "Module Title",
+    "description": "Brief 1-2 sentence description of what students will learn",
+    "icon": "cube",
+    "color": "from-purple-500 to-pink-500",
+    "lessons": [
+        {{
+            "id": "unique-lesson-id",
+            "title": "Lesson Title",
+            "duration": "5 min",
+            "xp": 20,
+            "content": "# Lesson Title\\n\\nMarkdown content with headers, bullet points, and explanations. Make it educational and beginner-friendly. Include:\\n- Key concepts\\n- Examples\\n- Real-world applications",
+            "quiz": [
+                {{
+                    "question": "Question text?",
+                    "options": ["Option A", "Option B", "Option C", "Option D"],
+                    "correct": 0
+                }},
+                {{
+                    "question": "Another question?",
+                    "options": ["Option A", "Option B", "Option C", "Option D"],
+                    "correct": 2
+                }}
+            ]
+        }}
+    ]
+}}
+
+Requirements:
+- Generate exactly 3 lessons
+- Each lesson must have 2-3 quiz questions
+- Each quiz question must have exactly 4 options
+- "correct" is the 0-based index of the correct answer
+- "icon" must be one of: "cube", "wallet", "code", "chart", "shield", "globe", "zap", "layers"
+- "color" must be a Tailwind gradient like "from-COLOR-500 to-COLOR-500"
+- Content should be educational, accurate, and beginner-friendly
+- Use markdown formatting in content (headers, bullets, bold, code blocks)
+
+Return ONLY the JSON object, nothing else."""
+
+        try:
+            model = get_gemini_model()
+            if model is None:
+                return {"error": "Gemini API key not configured"}
+            
+            response = model.generate_content(prompt)
+            response_text = response.text.strip()
+            
+            # Clean up response - remove markdown code blocks if present
+            if response_text.startswith("```"):
+                lines = response_text.split("\n")
+                # Remove first line (```json) and last line (```)
+                response_text = "\n".join(lines[1:-1])
+            
+            # Parse JSON
+            module_data = json.loads(response_text)
+            
+            # Validate structure
+            required_fields = ["id", "title", "description", "icon", "color", "lessons"]
+            for field in required_fields:
+                if field not in module_data:
+                    return {"error": f"Missing required field: {field}"}
+            
+            # Validate lessons
+            for lesson in module_data["lessons"]:
+                lesson_fields = ["id", "title", "duration", "xp", "content", "quiz"]
+                for field in lesson_fields:
+                    if field not in lesson:
+                        return {"error": f"Lesson missing required field: {field}"}
+                
+                # Validate quiz questions
+                for quiz in lesson["quiz"]:
+                    if len(quiz.get("options", [])) != 4:
+                        return {"error": "Each quiz question must have exactly 4 options"}
+                    if not isinstance(quiz.get("correct"), int) or quiz["correct"] < 0 or quiz["correct"] > 3:
+                        return {"error": "Quiz 'correct' must be an integer 0-3"}
+            
+            return {"success": True, "module": module_data}
+            
+        except json.JSONDecodeError as e:
+            return {"error": f"Failed to parse generated module: {str(e)}"}
+        except Exception as e:
+            return {"error": f"Failed to generate module: {str(e)}"}
+    
     def clear_history(self):
         """Clear conversation history."""
         self.conversation_history = []
