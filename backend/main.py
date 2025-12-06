@@ -14,10 +14,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
-from backend.spoon_agent import get_agent
-from backend.data_store import get_store
-from backend.lessons import get_all_modules, get_module, get_lesson, get_all_lessons
-from backend.adventures import get_adventure, get_all_adventures, get_npc
+from spoon_agent import get_agent
+from data_store import get_store
+from lessons import get_all_modules, get_module, get_lesson, get_all_lessons
+from adventures import get_adventure, get_all_adventures, get_npc
 
 app = FastAPI(
     title="ChainQuest Academy API",
@@ -308,10 +308,19 @@ async def list_adventures(user_id: str = "default"):
     store = get_store()
     user = store.get_or_create_user(user_id)
     
-    # Add completion status
+    # Add completion status and user progress
     completed_chapters = user.get("completed_chapters", [])
+    adventure_progress = user.get("adventure_progress", {})
+    
     for adventure in adventures:
         adventure["completed"] = adventure["id"] in completed_chapters
+        # Add user progress for each adventure
+        chapter_progress = adventure_progress.get(adventure["id"], {})
+        adventure["user_progress"] = {
+            "completed_challenges": chapter_progress.get("completed_challenges", []),
+            "score": chapter_progress.get("score", 0),
+            "total_challenges": len(adventure.get("challenges", []))
+        }
     
     return {"adventures": adventures}
 
