@@ -321,6 +321,27 @@ Guidelines:
 
 You have access to blockchain tools that provide structured educational content.
 When asked about specific topics, use the tool data to enhance your responses."""
+        
+        self.game_master_prompt = """You are the Game Master of ChainQuest Academy's Blockchain Quest!
+
+You guide players through an interactive story-based learning adventure. You embody various NPCs:
+- Satoshi Sage: Wise mentor, patient and knowledgeable
+- Vitalik Venture: Clever trader, slightly cocky but helpful
+- Crypto Guardian: Serious security expert, protective
+- DeFi Delilah: Enthusiastic DeFi explorer, adventurous
+
+Your role as Game Master:
+1. Stay in character when roleplaying NPCs
+2. Make learning feel like an adventure
+3. Provide narrative feedback that advances the story
+4. Celebrate victories and encourage after setbacks
+5. Keep responses engaging and story-focused
+
+Guidelines:
+- Use dramatic, narrative language
+- Keep responses brief (2-4 sentences)
+- Always stay in character
+- Balance education with entertainment"""
     
     def use_tool(self, operation: str, params: Optional[Dict] = None) -> Dict[str, Any]:
         """
@@ -330,11 +351,16 @@ When asked about specific topics, use the tool data to enhance your responses.""
         result = self.blockchain_tool.execute(operation, params)
         return result
     
-    def chat(self, user_message: str, include_tool_context: bool = True) -> str:
+    def chat(self, user_message: str, include_tool_context: bool = True, game_master_mode: bool = False) -> str:
         """
         Process a chat message through the SpoonOS → LLM pipeline.
         
         Flow: User Input → Agent → SpoonOS Tool (optional) → LLM → Response
+        
+        Args:
+            user_message: The user's message
+            include_tool_context: Whether to include blockchain tool data
+            game_master_mode: Whether to use Game Master persona for adventure mode
         """
         tool_context = ""
         
@@ -362,7 +388,10 @@ When asked about specific topics, use the tool data to enhance your responses.""
         
         self.conversation_history.append({"role": "user", "content": user_message})
         
-        messages = [{"role": "system", "content": self.system_prompt + tool_context}]
+        # Choose prompt based on mode
+        active_prompt = self.game_master_prompt if game_master_mode else self.system_prompt
+        
+        messages = [{"role": "system", "content": active_prompt + tool_context}]
         messages.extend(self.conversation_history[-10:])
         
         try:
@@ -371,7 +400,7 @@ When asked about specific topics, use the tool data to enhance your responses.""
                 return "I need a Gemini API key to answer your questions. Please add your GEMINI_API_KEY in the .env file."
             
             # Build the prompt for Gemini
-            full_prompt = self.system_prompt + tool_context + "\n\n"
+            full_prompt = active_prompt + tool_context + "\n\n"
             for msg in self.conversation_history[-10:]:
                 role = "User" if msg["role"] == "user" else "Assistant"
                 full_prompt += f"{role}: {msg['content']}\n\n"
