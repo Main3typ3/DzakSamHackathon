@@ -1113,6 +1113,105 @@ Be thorough but concise. Focus on blockchain-specific concepts like gas, storage
   }
 });
 
+// Contract Generator endpoint - Generate smart contract from description
+app.post("/contracts/generate", async (req, res) => {
+  const { description, user_id = "default" } = req.body;
+
+  if (!description) {
+    res.status(400).json({ error: "Description is required" });
+    return;
+  }
+
+  try {
+    const prompt = `You are an expert Solidity smart contract developer. Generate a complete, secure, and well-documented smart contract based on the following description:
+
+Description: ${description}
+
+Requirements:
+1. Use Solidity version ^0.8.0 or higher
+2. Include SPDX-License-Identifier
+3. Add NatSpec comments for all functions
+4. Follow security best practices (checks-effects-interactions, reentrancy guards if needed)
+5. Include events for important state changes
+6. Make the code production-ready
+
+Respond in valid JSON format with this structure:
+{
+  "contract_code": "// The complete Solidity contract code with proper formatting",
+  "contract_name": "Name of the main contract",
+  "description": "Brief description of what the contract does",
+  "features": ["Feature 1", "Feature 2", "Feature 3"],
+  "security_notes": ["Security consideration 1", "Security consideration 2"],
+  "deployment_notes": "Any notes about deploying this contract"
+}`;
+
+    const text = await generateWithFallback(prompt);
+    
+    // Parse the JSON response
+    let parsed;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        parsed = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error("No JSON found in response");
+      }
+    } catch {
+      // Fallback response if parsing fails
+      parsed = {
+        contract_code: `// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+// Generated contract based on: ${description}
+contract GeneratedContract {
+    // TODO: Implement your contract logic here
+}`,
+        contract_name: "GeneratedContract",
+        description: description,
+        features: ["Basic contract structure"],
+        security_notes: ["Review before deployment"],
+        deployment_notes: "Compile with Solidity 0.8.0 or higher"
+      };
+    }
+
+    // Update user XP
+    const user = getOrCreateUser(user_id);
+    const xpGained = 25;
+    user.xp += xpGained;
+    const oldLevel = user.level;
+    user.level = Math.floor(user.xp / 100) + 1;
+    const leveledUp = user.level > oldLevel;
+
+    // Track contracts generated
+    if (!users[user_id]) {
+      users[user_id] = user;
+    }
+
+    res.json({
+      success: true,
+      contract: {
+        code: parsed.contract_code,
+        name: parsed.contract_name,
+        description: parsed.description,
+        features: parsed.features || [],
+        security_notes: parsed.security_notes || [],
+        deployment_notes: parsed.deployment_notes || ""
+      },
+      xp_gained: xpGained,
+      leveled_up: leveledUp,
+      new_level: leveledUp ? user.level : undefined,
+      new_badges: [],
+      contracts_generated: 1
+    });
+  } catch (error) {
+    console.error("Contract generation error:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Failed to generate contract" 
+    });
+  }
+});
+
 // Generate a new module using AI
 app.post("/modules/generate", async (req, res) => {
   const { topic } = req.body;
