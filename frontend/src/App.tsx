@@ -10,6 +10,7 @@ import Progress from './pages/Progress';
 import About from './pages/About';
 import Adventures from './pages/Adventures';
 import AdventureMode from './pages/AdventureMode';
+import CodeExplainer from './pages/CodeExplainer';
 import { getUserStats } from './api';
 
 function App() {
@@ -46,6 +47,7 @@ function App() {
         <Route path="/about" element={<About />} />
         <Route path="/adventures" element={<Adventures />} />
         <Route path="/adventure/:chapterId" element={<AdventureMode />} />
+        <Route path="/explainer" element={<CodeExplainer />} />
       </Routes>
     </div>
   );

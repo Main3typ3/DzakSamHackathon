@@ -65,8 +65,15 @@ class AdventureAnswerRequest(BaseModel):
     chapter_id: str
     challenge_id: str
     answer: int
+
+
 class GenerateModuleRequest(BaseModel):
     topic: str
+    user_id: Optional[str] = "default"
+
+
+class ExplainCodeRequest(BaseModel):
+    code: str
     user_id: Optional[str] = "default"
 
 
@@ -478,6 +485,37 @@ Keep it brief (2-3 sentences) and engaging."""
     store.save_user(request.user_id, user)
     
     return result
+
+
+@app.post("/api/contracts/explain")
+async def explain_contract(request: ExplainCodeRequest):
+    """Explain Solidity smart contract code line-by-line."""
+    if not request.code or not request.code.strip():
+        raise HTTPException(status_code=400, detail="Code cannot be empty")
+    
+    agent = get_agent()
+    
+    try:
+        # Generate explanations
+        result = agent.explain_code(request.code)
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail="Failed to explain code")
+        
+        # Award XP and badge
+        store = get_store()
+        progress_result = store.record_code_explanation(request.user_id)
+        
+        result["xp_gained"] = progress_result.get("xp_gained", 0)
+        result["leveled_up"] = progress_result.get("leveled_up", False)
+        result["new_level"] = progress_result.get("new_level")
+        result["new_badges"] = progress_result.get("new_badges", [])
+        result["explanation_count"] = progress_result.get("explanation_count", 1)
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error explaining code: {str(e)}")
 
 
 if __name__ == "__main__":

@@ -207,3 +207,30 @@ export const generateModule = async (topic: string, userId = 'default'): Promise
   const response = await api.post('/modules/generate', { topic, user_id: userId });
   return response.data;
 };
+
+// Code Explainer API
+export interface CodeSection {
+  type: string;
+  title: string;
+  start_line: number;
+  end_line: number;
+  code: string;
+  explanation: string;
+}
+
+export interface ExplainCodeResponse {
+  success: boolean;
+  summary: string;
+  sections: CodeSection[];
+  total_lines: number;
+  xp_gained: number;
+  leveled_up?: boolean;
+  new_level?: number;
+  new_badges?: Badge[];
+  explanation_count: number;
+}
+
+export const explainCode = async (code: string, userId = 'default'): Promise<ExplainCodeResponse> => {
+  const response = await api.post('/contracts/explain', { code, user_id: userId });
+  return response.data;
+};

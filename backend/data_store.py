@@ -95,6 +95,13 @@ BADGES = {
         "description": "Get 100% on any quiz",
         "icon": "star",
         "xp_reward": 30
+    },
+    "code_scholar": {
+        "id": "code_scholar",
+        "name": "Code Scholar",
+        "description": "Explain your first smart contract",
+        "icon": "code",
+        "xp_reward": 30
     }
 }
 
@@ -320,6 +327,36 @@ class UserDataStore:
         users[user_id] = user_data
         users[user_id]["last_active"] = datetime.now().isoformat()
         save_json(USERS_FILE, users)
+    
+    def record_code_explanation(self, user_id: str) -> Dict[str, Any]:
+        """Record that user explained a contract and award badge/XP."""
+        user = self.get_or_create_user(user_id)
+        
+        # Increment explanation count
+        explanation_count = user.get("contracts_explained", 0) + 1
+        self.update_user(user_id, {"contracts_explained": explanation_count})
+        
+        result = {
+            "explanation_count": explanation_count,
+            "new_badges": [],
+            "xp_gained": 30  # 30 XP per contract explained
+        }
+        
+        # Award XP
+        xp_result = self.add_xp(user_id, 30, "Contract Explained")
+        result["leveled_up"] = xp_result.get("leveled_up", False)
+        result["new_level"] = xp_result.get("new_level")
+        
+        # Award Code Scholar badge for first explanation
+        if explanation_count == 1:
+            badge_result = self.award_badge(user_id, "code_scholar")
+            if badge_result.get("awarded"):
+                result["new_badges"].append(badge_result["badge"])
+                # Add badge XP on top
+                xp_result = self.add_xp(user_id, BADGES["code_scholar"]["xp_reward"])
+                result["xp_gained"] += BADGES["code_scholar"]["xp_reward"]
+        
+        return result
 
 
 data_store = UserDataStore()
