@@ -207,3 +207,22 @@ export const generateModule = async (topic: string, userId = 'default'): Promise
   const response = await api.post('/modules/generate', { topic, user_id: userId });
   return response.data;
 };
+
+export interface ContractGenerationResponse {
+  success: boolean;
+  contract: {
+    code: string;
+    explanation: string;
+    warnings: string[];
+  };
+  xp_gained: number;
+  leveled_up?: boolean;
+  new_level?: number;
+  new_badges: Badge[];
+  contracts_generated: number;
+}
+
+export const generateContract = async (description: string, userId = 'default'): Promise<ContractGenerationResponse> => {
+  const response = await api.post('/contracts/generate', { description, user_id: userId });
+  return response.data;
+};
