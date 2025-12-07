@@ -12,6 +12,9 @@ import About from './pages/About';
 import Adventures from './pages/Adventures';
 import AdventureMode from './pages/AdventureMode';
 import CodeExplainer from './pages/CodeExplainer';
+import Onboarding from './pages/Onboarding';
+import Login from './pages/Login';
+import AuthCallback from './pages/AuthCallback';
 import { getUserStats } from './api';
 
 function AppContent() {

@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
-import { BookOpen, MessageSquare, Trophy, Home, Zap, Users, Sparkles, Code } from 'lucide-react';
+import { BookOpen, MessageSquare, Trophy, Home, Zap, Users, Sparkles, Code, User, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface NavbarProps {
   xp?: number;
