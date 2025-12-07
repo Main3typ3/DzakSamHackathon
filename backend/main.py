@@ -78,6 +78,14 @@ class GoogleAuthCallbackRequest(BaseModel):
 
 
 class GenerateContractRequest(BaseModel):
+    """
+    Request model for smart contract generation.
+    
+    Attributes:
+        description: Natural language description of the desired smart contract.
+                    Should specify functionality, token properties, access control, etc.
+        user_id: User identifier for progress tracking and rewards.
+    """
     description: str
     user_id: Optional[str] = "default"
 
