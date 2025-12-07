@@ -9,10 +9,21 @@ import * as admin from "firebase-admin";
 import express from "express";
 import cors from "cors";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import * as jwt from "jsonwebtoken";
 
 // Define secrets (primary and backup API keys)
 const geminiApiKey = defineSecret("GEMINI_API_KEY");
 const geminiApiKeyBackup = defineSecret("GEMINI_API_KEY_BACKUP");
+const googleClientId = defineSecret("GOOGLE_CLIENT_ID");
+const googleClientSecret = defineSecret("GOOGLE_CLIENT_SECRET");
+const jwtSecret = defineSecret("JWT_SECRET");
+
+// OAuth configuration
+const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
+const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo";
+const FRONTEND_URL = "https://chainquest-academy.vercel.app";
+const OAUTH_REDIRECT_URI = "https://us-central1-chainquest-academy.cloudfunctions.net/api/auth/google/callback";
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -568,6 +579,171 @@ app.get("/health", (req, res) => {
   });
 });
 
+// ============================================
+// OAUTH ENDPOINTS
+// ============================================
+
+// Helper function to create JWT token
+const createJwtToken = (payload: object): string => {
+  const secret = jwtSecret.value() || "fallback-secret-key";
+  return jwt.sign(payload, secret, { expiresIn: "7d" });
+};
+
+// Helper function to verify JWT token
+const verifyJwtToken = (token: string): jwt.JwtPayload | null => {
+  try {
+    const secret = jwtSecret.value() || "fallback-secret-key";
+    return jwt.verify(token, secret) as jwt.JwtPayload;
+  } catch {
+    return null;
+  }
+};
+
+// Initiate Google OAuth flow
+app.get("/auth/google", (req, res) => {
+  const clientId = googleClientId.value();
+  
+  if (!clientId) {
+    res.status(500).json({ error: "OAuth not configured" });
+    return;
+  }
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: OAUTH_REDIRECT_URI,
+    response_type: "code",
+    scope: "openid email profile",
+    access_type: "offline",
+    prompt: "consent",
+  });
+
+  const authUrl = `${GOOGLE_AUTH_URL}?${params.toString()}`;
+  res.json({ auth_url: authUrl });
+});
+
+// Handle Google OAuth callback (POST from frontend)
+app.post("/auth/google/callback", async (req, res) => {
+  const { code } = req.body;
+
+  if (!code) {
+    res.status(400).json({ error: "No authorization code provided" });
+    return;
+  }
+
+  try {
+    const clientId = googleClientId.value();
+    const clientSecret = googleClientSecret.value();
+
+    if (!clientId || !clientSecret) {
+      res.status(500).json({ error: "OAuth not configured" });
+      return;
+    }
+
+    // Exchange code for tokens
+    const tokenResponse = await fetch(GOOGLE_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        grant_type: "authorization_code",
+        redirect_uri: OAUTH_REDIRECT_URI,
+      }),
+    });
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenData.access_token) {
+      console.error("Token exchange failed:", tokenData);
+      res.status(400).json({ error: "Failed to exchange code for token" });
+      return;
+    }
+
+    // Get user info from Google
+    const userInfoResponse = await fetch(GOOGLE_USERINFO_URL, {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+
+    const userInfo = await userInfoResponse.json();
+
+    // Create JWT token with user info
+    const jwtPayload = {
+      sub: userInfo.id,
+      email: userInfo.email,
+      name: userInfo.name,
+      picture: userInfo.picture,
+    };
+
+    const accessToken = createJwtToken(jwtPayload);
+
+    res.json({
+      access_token: accessToken,
+      token_type: "bearer",
+      user: {
+        id: userInfo.id,
+        email: userInfo.email,
+        name: userInfo.name,
+        picture: userInfo.picture,
+      },
+    });
+  } catch (error) {
+    console.error("OAuth callback error:", error);
+    res.status(500).json({ error: "Authentication failed" });
+  }
+});
+
+// Handle Google OAuth callback (GET redirect from Google)
+app.get("/auth/google/callback", async (req, res) => {
+  const code = req.query.code as string;
+  const error = req.query.error as string;
+
+  if (error) {
+    res.redirect(`${FRONTEND_URL}/login?error=${encodeURIComponent(error)}`);
+    return;
+  }
+
+  if (!code) {
+    res.redirect(`${FRONTEND_URL}/login?error=no_code`);
+    return;
+  }
+
+  // Redirect to frontend with the code
+  res.redirect(`${FRONTEND_URL}/auth/callback?code=${encodeURIComponent(code)}`);
+});
+
+// Get current user from JWT
+app.get("/auth/me", (req, res) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ error: "No token provided" });
+    return;
+  }
+
+  const token = authHeader.split(" ")[1];
+  const payload = verifyJwtToken(token);
+
+  if (!payload) {
+    res.status(401).json({ error: "Invalid token" });
+    return;
+  }
+
+  res.json({
+    user: {
+      id: payload.sub,
+      email: payload.email,
+      name: payload.name,
+      picture: payload.picture,
+    },
+  });
+});
+
+// Logout endpoint
+app.post("/auth/logout", (req, res) => {
+  res.json({ success: true, message: "Logged out successfully" });
+});
+
 // Get all modules
 app.get("/modules", (req, res) => {
   const modulesWithProgress = MODULES.map((module) => ({
@@ -951,6 +1127,6 @@ Please provide a helpful, educational response:`;
 
 // Export the Express app as a Firebase Function (2nd gen) with secrets
 export const api = onRequest(
-  { secrets: [geminiApiKey, geminiApiKeyBackup], cors: true },
+  { secrets: [geminiApiKey, geminiApiKeyBackup, googleClientId, googleClientSecret, jwtSecret], cors: true },
   app
 );
