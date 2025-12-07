@@ -48,10 +48,28 @@ pip install -r requirements.txt
 ```
 
 ### 3. Configure Environment
-Create a `.env` file in the `backend/` folder:
+Create a `.env` file in the root directory:
+```env
+# OAuth Configuration (required for authentication)
+GOOGLE_CLIENT_ID=your-google-client-id-here
+GOOGLE_CLIENT_SECRET=your-google-client-secret-here
+GOOGLE_REDIRECT_URI=http://localhost:5173/auth/callback
+
+# JWT Configuration (required for sessions)
+JWT_SECRET=your-secret-key-change-this-in-production
+
+# SpoonOS / OpenAI (optional, for AI tutor)
+# OPENAI_API_KEY=your_openai_api_key_here
 ```
-OPENAI_API_KEY=your_openai_api_key_here
-```
+
+#### Setting up Google OAuth:
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Enable the Google+ API
+4. Go to "Credentials" and create an OAuth 2.0 Client ID
+5. Set authorized redirect URI to: `http://localhost:5173/auth/callback`
+6. Copy the Client ID and Client Secret to your `.env` file
+7. Generate a secure random string for `JWT_SECRET` (e.g., using `openssl rand -hex 32`)
 
 ### 4. Start the Backend
 ```bash
@@ -95,6 +113,12 @@ Visit http://localhost:5000 in your browser.
 
 ## Features
 
+### Authentication & Onboarding
+- **OAuth 2.0 Authentication** - Secure sign-in with Google
+- **Animated Onboarding** - Multi-step splash screen for first-time users
+- **Persistent Sessions** - JWT-based authentication with automatic token refresh
+- **User Profiles** - Profile pictures and personalized experience
+
 ### Learning Modules
 - **Blockchain Fundamentals** - Core concepts, blocks, chains, consensus
 - **Crypto Wallets** - Wallet types, seed phrases, transactions
@@ -114,6 +138,15 @@ Visit http://localhost:5000 in your browser.
 
 ## API Endpoints
 
+### Authentication
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/auth/google` | GET | Initiate Google OAuth flow |
+| `/api/auth/google/callback` | POST | Handle OAuth callback |
+| `/api/auth/me` | GET | Get current user info |
+| `/api/auth/logout` | POST | Logout user |
+
+### Learning & Progress
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/modules` | GET | List all learning modules |
@@ -124,6 +157,13 @@ Visit http://localhost:5000 in your browser.
 | `/api/chat` | POST | Chat with AI tutor |
 | `/api/user/stats` | GET | Get user statistics |
 | `/api/user/progress` | GET | Get detailed progress |
+
+### Adventures
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/adventures` | GET | List all adventures |
+| `/api/adventures/{id}` | GET | Get adventure details |
+| `/api/adventures/{id}/answer` | POST | Submit adventure challenge answer |
 
 ## SpoonOS Integration
 

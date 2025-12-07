@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
@@ -18,6 +18,12 @@ from spoon_agent import get_agent
 from data_store import get_store
 from lessons import get_all_modules, get_module, get_lesson, get_all_lessons, add_generated_module
 from adventures import get_adventure, get_all_adventures, get_npc
+from auth import (
+    get_current_user,
+    get_optional_user,
+    get_google_auth_url,
+    authenticate_with_google,
+)
 
 app = FastAPI(
     title="ChainQuest Academy API",
@@ -36,7 +42,6 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     message: str
-    user_id: Optional[str] = "default"
 
 
 class ChatResponse(BaseModel):
@@ -48,12 +53,10 @@ class ChatResponse(BaseModel):
 class QuizAnswerRequest(BaseModel):
     lesson_id: str
     answers: List[int]
-    user_id: Optional[str] = "default"
 
 
 class LessonCompleteRequest(BaseModel):
     lesson_id: str
-    user_id: Optional[str] = "default"
 
 
 class ToolRequest(BaseModel):
@@ -69,6 +72,22 @@ class AdventureAnswerRequest(BaseModel):
 
 class GenerateModuleRequest(BaseModel):
     topic: str
+
+
+class GoogleAuthCallbackRequest(BaseModel):
+    code: str
+
+
+class GenerateContractRequest(BaseModel):
+    """
+    Request model for smart contract generation.
+    
+    Attributes:
+        description: Natural language description of the desired smart contract.
+                    Should specify functionality, token properties, access control, etc.
+        user_id: User identifier for progress tracking and rewards.
+    """
+    description: str
     user_id: Optional[str] = "default"
 
 
@@ -88,9 +107,41 @@ async def root():
     }
 
 
+# Authentication Endpoints
+@app.get("/api/auth/google")
+async def google_auth(redirect_uri: Optional[str] = None):
+    """Initiate Google OAuth flow."""
+    state = redirect_uri or ""
+    auth_url = get_google_auth_url(state)
+    return {"auth_url": auth_url}
+
+
+@app.post("/api/auth/google/callback")
+async def google_auth_callback(request: GoogleAuthCallbackRequest):
+    """Handle Google OAuth callback."""
+    try:
+        result = await authenticate_with_google(request.code)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/auth/me")
+async def get_me(current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Get current authenticated user."""
+    return {"user": current_user}
+
+
+@app.post("/api/auth/logout")
+async def logout():
+    """Logout endpoint (client-side token removal)."""
+    return {"success": True, "message": "Logged out successfully"}
+
+
 @app.get("/api/modules")
-async def list_modules(user_id: str = "default"):
+async def list_modules(current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
     """Get all learning modules with user progress."""
+    user_id = current_user["user_id"] if current_user else "default"
     store = get_store()
     user = store.get_or_create_user(user_id)
     modules = get_all_modules()
@@ -129,9 +180,62 @@ async def generate_module(request: GenerateModuleRequest):
     }
 
 
+@app.post("/api/contracts/generate")
+async def generate_contract(request: GenerateContractRequest):
+    """Generate a Solidity smart contract from natural language description."""
+    agent = get_agent()
+    result = await agent.generate_contract(request.description)
+    
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    # Track user progress and award badges
+    store = get_store()
+    user = store.get_or_create_user(request.user_id)
+    
+    # Initialize contract generation counter if not exists
+    if "contracts_generated" not in user:
+        user["contracts_generated"] = 0
+    
+    user["contracts_generated"] += 1
+    contracts_count = user["contracts_generated"]
+    
+    # Award XP for contract generation
+    xp_result = store.add_xp(request.user_id, 50)
+    
+    # Check for badges
+    new_badges = []
+    
+    # First contract badge
+    if contracts_count == 1 and "ai_contract_gen" not in user.get("badges", []):
+        badge_result = store.award_badge(request.user_id, "ai_contract_gen")
+        if badge_result.get("new_badges"):
+            new_badges.extend(badge_result["new_badges"])
+    
+    # Master badge after 3 contracts
+    if contracts_count >= 3 and "ai_contract_master" not in user.get("badges", []):
+        badge_result = store.award_badge(request.user_id, "ai_contract_master")
+        if badge_result.get("new_badges"):
+            new_badges.extend(badge_result["new_badges"])
+    
+    # Save user data
+    store.save_user(request.user_id, user)
+    
+    return {
+        "success": True,
+        "contract": result["contract"],
+        "xp_gained": 50,
+        "leveled_up": xp_result.get("leveled_up", False),
+        "new_level": xp_result.get("new_level"),
+        "new_badges": new_badges,
+        "contracts_generated": contracts_count
+    }
+
+
 @app.get("/api/modules/{module_id}")
-async def get_module_details(module_id: str, user_id: str = "default"):
+async def get_module_details(module_id: str, current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
     """Get a specific module with lessons."""
+    user_id = current_user["user_id"] if current_user else "default"
     module = get_module(module_id)
     if not module:
         raise HTTPException(status_code=404, detail="Module not found")
@@ -146,8 +250,9 @@ async def get_module_details(module_id: str, user_id: str = "default"):
 
 
 @app.get("/api/lessons/{lesson_id}")
-async def get_lesson_details(lesson_id: str, user_id: str = "default"):
+async def get_lesson_details(lesson_id: str, current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
     """Get a specific lesson with quiz."""
+    user_id = current_user["user_id"] if current_user else "default"
     lesson = get_lesson(lesson_id)
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
@@ -160,14 +265,15 @@ async def get_lesson_details(lesson_id: str, user_id: str = "default"):
 
 
 @app.post("/api/lessons/{lesson_id}/complete")
-async def complete_lesson(lesson_id: str, request: LessonCompleteRequest):
+async def complete_lesson(lesson_id: str, request: LessonCompleteRequest, current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
     """Mark a lesson as completed."""
+    user_id = current_user["user_id"] if current_user else request.user_id
     lesson = get_lesson(lesson_id)
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
     
     store = get_store()
-    result = store.complete_lesson(request.user_id, lesson_id)
+    result = store.complete_lesson(user_id, lesson_id)
     
     return {
         "success": True,
@@ -180,8 +286,9 @@ async def complete_lesson(lesson_id: str, request: LessonCompleteRequest):
 
 
 @app.post("/api/lessons/{lesson_id}/quiz")
-async def submit_quiz(lesson_id: str, request: QuizAnswerRequest):
+async def submit_quiz(lesson_id: str, request: QuizAnswerRequest, current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
     """Submit quiz answers and get feedback."""
+    user_id = current_user["user_id"] if current_user else request.user_id
     lesson = get_lesson(lesson_id)
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
@@ -225,7 +332,7 @@ async def submit_quiz(lesson_id: str, request: QuizAnswerRequest):
     
     store = get_store()
     score_result = store.record_quiz_score(
-        request.user_id,
+        user_id,
         lesson_id,
         correct_count,
         len(quiz)
@@ -243,14 +350,15 @@ async def submit_quiz(lesson_id: str, request: QuizAnswerRequest):
 
 
 @app.post("/api/chat")
-async def chat_with_tutor(request: ChatRequest):
+async def chat_with_tutor(request: ChatRequest, current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
     """Chat with the AI blockchain tutor."""
+    user_id = current_user["user_id"] if current_user else request.user_id
     agent = get_agent()
     store = get_store()
     
     try:
         response = agent.chat(request.message)
-        chat_result = store.increment_chat_count(request.user_id)
+        chat_result = store.increment_chat_count(user_id)
         
         return ChatResponse(
             response=response,
@@ -292,16 +400,18 @@ async def list_tools():
 
 
 @app.get("/api/user/stats")
-async def get_user_stats(user_id: str = "default"):
+async def get_user_stats(current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
     """Get user statistics and progress."""
+    user_id = current_user["user_id"] if current_user else "default"
     store = get_store()
     stats = store.get_user_stats(user_id)
     return {"stats": stats}
 
 
 @app.get("/api/user/progress")
-async def get_user_progress(user_id: str = "default"):
+async def get_user_progress(current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
     """Get detailed user progress across all modules."""
+    user_id = current_user["user_id"] if current_user else "default"
     store = get_store()
     user = store.get_or_create_user(user_id)
     modules = get_all_modules()
@@ -330,8 +440,9 @@ async def get_user_progress(user_id: str = "default"):
 
 
 @app.get("/api/adventures")
-async def list_adventures(user_id: str = "default"):
+async def list_adventures(current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
     """Get all adventure chapters with user progress."""
+    user_id = current_user["user_id"] if current_user else "default"
     adventures = get_all_adventures()
     store = get_store()
     user = store.get_or_create_user(user_id)
@@ -354,8 +465,9 @@ async def list_adventures(user_id: str = "default"):
 
 
 @app.get("/api/adventures/{chapter_id}")
-async def get_adventure_chapter(chapter_id: str, user_id: str = "default"):
+async def get_adventure_chapter(chapter_id: str, current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
     """Get a specific adventure chapter."""
+    user_id = current_user["user_id"] if current_user else "default"
     adventure = get_adventure(chapter_id)
     if not adventure:
         raise HTTPException(status_code=404, detail="Adventure chapter not found")
@@ -375,8 +487,9 @@ async def get_adventure_chapter(chapter_id: str, user_id: str = "default"):
 
 
 @app.post("/api/adventures/{chapter_id}/answer")
-async def submit_adventure_answer(chapter_id: str, request: AdventureAnswerRequest):
+async def submit_adventure_answer(chapter_id: str, request: AdventureAnswerRequest, current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
     """Submit an answer for an adventure challenge."""
+    user_id = current_user["user_id"] if current_user else request.user_id
     adventure = get_adventure(chapter_id)
     if not adventure:
         raise HTTPException(status_code=404, detail="Adventure chapter not found")
@@ -427,7 +540,7 @@ Keep it brief (2-3 sentences) and engaging."""
     
     # Store progress
     store = get_store()
-    user = store.get_or_create_user(request.user_id)
+    user = store.get_or_create_user(user_id)
     
     # Initialize adventure progress structure
     if "adventure_progress" not in user:
@@ -460,7 +573,7 @@ Keep it brief (2-3 sentences) and engaging."""
     
     # Award XP for correct answers
     if is_correct:
-        xp_result = store.add_xp(request.user_id, challenge["xp_reward"])
+        xp_result = store.add_xp(user_id, challenge["xp_reward"])
         result["leveled_up"] = xp_result.get("leveled_up", False)
         result["new_level"] = xp_result.get("new_level")
     
@@ -471,18 +584,18 @@ Keep it brief (2-3 sentences) and engaging."""
         user["completed_chapters"].append(chapter_id)
         
         # Award completion XP and badge
-        completion_result = store.add_xp(request.user_id, adventure["completion_xp"])
+        completion_result = store.add_xp(user_id, adventure["completion_xp"])
         result["completion_xp"] = adventure["completion_xp"]
         result["leveled_up"] = completion_result.get("leveled_up", False)
         result["new_level"] = completion_result.get("new_level")
         
         # Award badge if specified
         if adventure.get("completion_badge"):
-            badge_result = store.award_badge(request.user_id, adventure["completion_badge"])
+            badge_result = store.award_badge(user_id, adventure["completion_badge"])
             result["new_badges"] = badge_result.get("new_badges", [])
     
     # Save user progress
-    store.save_user(request.user_id, user)
+    store.save_user(user_id, user)
     
     return result
 
