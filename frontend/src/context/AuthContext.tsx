@@ -28,21 +28,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored token on mount
-    const storedToken = localStorage.getItem('auth_token');
-    const storedUser = localStorage.getItem('auth_user');
+    const initAuth = async () => {
+      // Check for stored token on mount
+      const storedToken = localStorage.getItem('auth_token');
+      const storedUser = localStorage.getItem('auth_user');
 
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
-        // Invalid stored user, clear it
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_user');
+      if (storedToken && storedUser) {
+        try {
+          // Validate token by calling /api/auth/me
+          await axios.get(`${API_BASE_URL}/auth/me`, {
+            headers: { Authorization: `Bearer ${storedToken}` },
+          });
+          
+          // Token is valid, restore session
+          setToken(storedToken);
+          setUser(JSON.parse(storedUser));
+        } catch (error) {
+          // Token is invalid or expired, clear storage
+          console.error('Token validation failed:', error);
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('auth_user');
+        }
       }
-    }
-    setLoading(false);
+      setLoading(false);
+    };
+
+    initAuth();
   }, []);
 
   const login = (newToken: string, newUser: User) => {

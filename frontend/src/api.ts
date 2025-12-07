@@ -215,12 +215,23 @@ export const generateModule = async (topic: string): Promise<{ success: boolean;
 };
 
 // Auth API
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  picture: string;
+}
+
 export const getGoogleAuthUrl = async (): Promise<{ auth_url: string }> => {
   const response = await api.get('/auth/google');
   return response.data;
 };
 
-export const handleGoogleCallback = async (code: string): Promise<{ access_token: string; token_type: string; user: any }> => {
+export const handleGoogleCallback = async (code: string): Promise<{ 
+  access_token: string; 
+  token_type: string; 
+  user: AuthUser 
+}> => {
   const response = await api.post('/auth/google/callback', { code });
   return response.data;
 };

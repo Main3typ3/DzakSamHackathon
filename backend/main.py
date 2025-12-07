@@ -42,7 +42,6 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     message: str
-    user_id: Optional[str] = "default"
 
 
 class ChatResponse(BaseModel):
@@ -54,12 +53,10 @@ class ChatResponse(BaseModel):
 class QuizAnswerRequest(BaseModel):
     lesson_id: str
     answers: List[int]
-    user_id: Optional[str] = "default"
 
 
 class LessonCompleteRequest(BaseModel):
     lesson_id: str
-    user_id: Optional[str] = "default"
 
 
 class ToolRequest(BaseModel):
@@ -71,12 +68,10 @@ class AdventureAnswerRequest(BaseModel):
     chapter_id: str
     challenge_id: str
     answer: int
-    user_id: Optional[str] = "default"
 
 
 class GenerateModuleRequest(BaseModel):
     topic: str
-    user_id: Optional[str] = "default"
 
 
 class GoogleAuthCallbackRequest(BaseModel):

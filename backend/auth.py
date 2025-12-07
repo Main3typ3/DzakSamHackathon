@@ -6,6 +6,7 @@ Handles Google OAuth flow and JWT token management.
 import os
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
+from urllib.parse import urlencode
 from jose import JWTError, jwt
 from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthCredentials
@@ -123,7 +124,7 @@ def get_google_auth_url(state: str = "") -> str:
         "state": state,
     }
     
-    query_string = "&".join(f"{key}={value}" for key, value in params.items())
+    query_string = urlencode(params)
     return f"{GOOGLE_AUTH_URL}?{query_string}"
 
 
