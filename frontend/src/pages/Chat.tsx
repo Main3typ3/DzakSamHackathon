@@ -81,7 +81,7 @@ export default function Chat() {
           setTimeout(() => setNewBadges([]), 5000);
         }
       }
-    } catch (error) {
+    } catch {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
