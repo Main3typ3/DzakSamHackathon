@@ -281,3 +281,4 @@ export const explainCode = async (code: string, userId = 'default'): Promise<Exp
   const response = await api.post('/contracts/explain', { code, user_id: userId });
   return response.data;
 };
+// Force rebuild Sun Dec  7 12:19:31 GMT 2025
