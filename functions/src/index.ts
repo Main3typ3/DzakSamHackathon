@@ -10,8 +10,9 @@ import express from "express";
 import cors from "cors";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Define secret
+// Define secrets (primary and backup API keys)
 const geminiApiKey = defineSecret("GEMINI_API_KEY");
+const geminiApiKeyBackup = defineSecret("GEMINI_API_KEY_BACKUP");
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -294,14 +295,47 @@ A **crypto wallet** stores your private keys - the passwords that prove you own 
 // GEMINI AI INTEGRATION
 // ============================================
 
-const getGeminiModel = () => {
-  const apiKey = process.env.GEMINI_API_KEY;
+const getGeminiModel = (useBackup = false) => {
+  const apiKey = useBackup 
+    ? process.env.GEMINI_API_KEY_BACKUP 
+    : process.env.GEMINI_API_KEY;
+  
   if (!apiKey) {
-    console.error("GEMINI_API_KEY not configured");
+    console.error(useBackup ? "GEMINI_API_KEY_BACKUP not configured" : "GEMINI_API_KEY not configured");
     return null;
   }
   const genAI = new GoogleGenerativeAI(apiKey);
-  return genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  return genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+};
+
+// Helper function to generate content with fallback to backup key
+const generateWithFallback = async (prompt: string): Promise<string> => {
+  // Try primary key first
+  try {
+    const model = getGeminiModel(false);
+    if (model) {
+      const result = await model.generateContent(prompt);
+      return result.response.text();
+    }
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.log("Primary API key failed, trying backup:", errorMessage);
+  }
+
+  // Try backup key
+  try {
+    const backupModel = getGeminiModel(true);
+    if (backupModel) {
+      const result = await backupModel.generateContent(prompt);
+      return result.response.text();
+    }
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Backup API key also failed:", errorMessage);
+    throw new Error("Both API keys failed");
+  }
+
+  throw new Error("No API keys configured");
 };
 
 const BLOCKCHAIN_SYSTEM_PROMPT = `You are ChainQuest Academy's AI Teaching Assistant powered by SpoonOS.
@@ -821,16 +855,6 @@ app.post("/modules/generate", async (req, res) => {
   }
 
   try {
-    const model = getGeminiModel();
-
-    if (!model) {
-      res.status(503).json({
-        success: false,
-        error: "AI service not available. Please configure Gemini API key.",
-      });
-      return;
-    }
-
     const prompt = `Generate a learning module about "${topic}" for a blockchain/crypto education platform.
 
 Return a JSON object with this exact structure:
@@ -861,9 +885,7 @@ Return a JSON object with this exact structure:
 Create 2-3 lessons with 1-2 quiz questions each. Make the content educational and engaging.
 Only return valid JSON, no markdown code blocks or extra text.`;
 
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = response.text();
+    const text = await generateWithFallback(prompt);
 
     // Try to parse the JSON response
     let moduleData;
@@ -910,26 +932,13 @@ app.post("/chat", async (req, res) => {
   }
 
   try {
-    const model = getGeminiModel();
-
-    if (!model) {
-      res.json({
-        response:
-          "I'm currently in demo mode. To enable full AI capabilities, please configure your Gemini API key. How can I help you learn about blockchain today?",
-      });
-      return;
-    }
-
     const prompt = `${BLOCKCHAIN_SYSTEM_PROMPT}
 
 Student's question: ${message}
 
 Please provide a helpful, educational response:`;
 
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = response.text();
-
+    const text = await generateWithFallback(prompt);
     res.json({ response: text });
   } catch (error) {
     console.error("Chat error:", error);
@@ -942,6 +951,6 @@ Please provide a helpful, educational response:`;
 
 // Export the Express app as a Firebase Function (2nd gen) with secrets
 export const api = onRequest(
-  { secrets: [geminiApiKey], cors: true },
+  { secrets: [geminiApiKey, geminiApiKeyBackup], cors: true },
   app
 );
