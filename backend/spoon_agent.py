@@ -703,6 +703,252 @@ Return ONLY the JSON object, nothing else."""
     def clear_history(self):
         """Clear conversation history."""
         self.conversation_history = []
+    
+    def explain_code(self, code: str) -> Dict[str, Any]:
+        """
+        Explain Solidity smart contract code line-by-line using SpoonOS.
+        
+        Parses the code into sections and generates beginner-friendly explanations
+        for each line or logical block.
+        
+        Args:
+            code: The Solidity smart contract code to explain
+        
+        Returns:
+            Dict containing parsed sections with explanations
+        """
+        # Parse code into lines
+        lines = code.split('\n')
+        
+        # Identify key sections
+        sections = self._parse_solidity_sections(lines)
+        
+        # Generate explanations using SpoonOS
+        explained_sections = []
+        
+        for section in sections:
+            try:
+                explanation = self._generate_section_explanation(
+                    section["code"],
+                    section["type"],
+                    section["start_line"],
+                    section["end_line"]
+                )
+                
+                explained_sections.append({
+                    "type": section["type"],
+                    "start_line": section["start_line"],
+                    "end_line": section["end_line"],
+                    "code": section["code"],
+                    "explanation": explanation,
+                    "title": section["title"]
+                })
+            except Exception as e:
+                # Fallback to hardcoded explanations
+                explained_sections.append({
+                    "type": section["type"],
+                    "start_line": section["start_line"],
+                    "end_line": section["end_line"],
+                    "code": section["code"],
+                    "explanation": self._get_fallback_explanation(section["type"]),
+                    "title": section["title"]
+                })
+        
+        # Generate overall contract summary
+        try:
+            summary = self._generate_contract_summary(code)
+        except Exception:
+            summary = "This is a Solidity smart contract that runs on the Ethereum blockchain."
+        
+        return {
+            "success": True,
+            "summary": summary,
+            "sections": explained_sections,
+            "total_lines": len(lines)
+        }
+    
+    def _parse_solidity_sections(self, lines: List[str]) -> List[Dict[str, Any]]:
+        """Parse Solidity code into logical sections."""
+        sections = []
+        current_section = None
+        
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            
+            if not stripped or stripped.startswith('//'):
+                continue
+            
+            # Pragma directive
+            if stripped.startswith('pragma'):
+                sections.append({
+                    "type": "pragma",
+                    "title": "Version Declaration",
+                    "start_line": i + 1,
+                    "end_line": i + 1,
+                    "code": line
+                })
+            
+            # Import statements
+            elif stripped.startswith('import'):
+                sections.append({
+                    "type": "import",
+                    "title": "Import Statement",
+                    "start_line": i + 1,
+                    "end_line": i + 1,
+                    "code": line
+                })
+            
+            # Contract declaration
+            elif stripped.startswith('contract ') or stripped.startswith('interface ') or stripped.startswith('library '):
+                sections.append({
+                    "type": "contract_declaration",
+                    "title": "Contract Declaration",
+                    "start_line": i + 1,
+                    "end_line": i + 1,
+                    "code": line
+                })
+            
+            # State variables
+            elif any(keyword in stripped for keyword in ['uint', 'int', 'address', 'bool', 'string', 'bytes', 'mapping']) and ';' in stripped and 'function' not in stripped:
+                sections.append({
+                    "type": "state_variable",
+                    "title": "State Variable",
+                    "start_line": i + 1,
+                    "end_line": i + 1,
+                    "code": line
+                })
+            
+            # Constructor
+            elif 'constructor' in stripped:
+                # Find the closing brace
+                end_line = self._find_closing_brace(lines, i)
+                sections.append({
+                    "type": "constructor",
+                    "title": "Constructor",
+                    "start_line": i + 1,
+                    "end_line": end_line + 1,
+                    "code": '\n'.join(lines[i:end_line + 1])
+                })
+            
+            # Function declaration
+            elif stripped.startswith('function '):
+                end_line = self._find_closing_brace(lines, i)
+                sections.append({
+                    "type": "function",
+                    "title": "Function",
+                    "start_line": i + 1,
+                    "end_line": end_line + 1,
+                    "code": '\n'.join(lines[i:end_line + 1])
+                })
+            
+            # Modifier
+            elif stripped.startswith('modifier '):
+                end_line = self._find_closing_brace(lines, i)
+                sections.append({
+                    "type": "modifier",
+                    "title": "Modifier",
+                    "start_line": i + 1,
+                    "end_line": end_line + 1,
+                    "code": '\n'.join(lines[i:end_line + 1])
+                })
+            
+            # Event
+            elif stripped.startswith('event '):
+                sections.append({
+                    "type": "event",
+                    "title": "Event",
+                    "start_line": i + 1,
+                    "end_line": i + 1,
+                    "code": line
+                })
+        
+        return sections
+    
+    def _find_closing_brace(self, lines: List[str], start_idx: int) -> int:
+        """Find the closing brace for a code block."""
+        brace_count = 0
+        for i in range(start_idx, len(lines)):
+            brace_count += lines[i].count('{')
+            brace_count -= lines[i].count('}')
+            if brace_count == 0 and '{' in lines[start_idx]:
+                return i
+        return start_idx
+    
+    def _generate_section_explanation(self, code: str, section_type: str, start_line: int, end_line: int) -> str:
+        """Generate explanation for a code section using SpoonOS."""
+        prompt = f"""You are a blockchain educator explaining Solidity code to beginners.
+
+Explain this {section_type} in simple, clear terms:
+
+```solidity
+{code}
+```
+
+Provide a brief explanation (2-3 sentences) that:
+1. Explains what this code does in plain English
+2. Explains why it's important
+3. Uses simple analogies when helpful
+
+Keep it concise and beginner-friendly."""
+
+        messages = [{"role": "user", "content": prompt}]
+        
+        if SPOON_SDK_AVAILABLE and self.chatbot is not None:
+            try:
+                response = asyncio.run(self._simple_chat(messages))
+                return response.strip()
+            except Exception:
+                pass
+        
+        return self._get_fallback_explanation(section_type)
+    
+    def _generate_contract_summary(self, code: str) -> str:
+        """Generate overall contract summary using SpoonOS."""
+        prompt = f"""Analyze this Solidity smart contract and provide a brief summary (2-3 sentences) explaining:
+1. What the contract does
+2. Its main purpose
+3. Key features
+
+Code:
+```solidity
+{code[:1000]}...
+```
+
+Be concise and beginner-friendly."""
+
+        messages = [{"role": "user", "content": prompt}]
+        
+        if SPOON_SDK_AVAILABLE and self.chatbot is not None:
+            try:
+                response = asyncio.run(self._simple_chat(messages))
+                return response.strip()
+            except Exception:
+                pass
+        
+        return "This smart contract defines rules and logic that execute automatically on the blockchain."
+    
+    def _get_fallback_explanation(self, section_type: str) -> str:
+        """Get hardcoded explanation for common patterns."""
+        fallback_explanations = {
+            "pragma": "This line specifies which version of the Solidity compiler should be used to compile this contract. It ensures compatibility and prevents issues with different compiler versions.",
+            
+            "import": "This imports code from another file or library, allowing you to use pre-written contracts and functions. It's like including a library in other programming languages.",
+            
+            "contract_declaration": "This declares a new smart contract, which is like a class in traditional programming. The contract contains all the code, data, and rules for this particular blockchain application.",
+            
+            "state_variable": "This is a state variable that stores data permanently on the blockchain. State variables persist between function calls and are visible to all functions in the contract.",
+            
+            "constructor": "The constructor runs once when the contract is deployed to the blockchain. It's used to initialize state variables and set up the contract's initial state.",
+            
+            "function": "This is a function that can be called to execute code and potentially modify the contract's state. Functions are the main way users interact with smart contracts.",
+            
+            "modifier": "A modifier is a special function that can be applied to other functions to add conditions or checks. It's commonly used for access control and validation.",
+            
+            "event": "Events are used to log information to the blockchain. They provide a way for external applications to listen for specific occurrences in your contract and react accordingly."
+        }
+        
+        return fallback_explanations.get(section_type, "This is part of the smart contract code that defines specific logic or data structures.")
+
 
 
 # ============================================================================
