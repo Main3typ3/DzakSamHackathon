@@ -10,6 +10,15 @@ const api = axios.create({
   },
 });
 
+// Add auth token to all requests
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('auth_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 export interface Module {
   id: string;
   title: string;
@@ -80,37 +89,36 @@ export interface ChatResponse {
   new_badges: Badge[];
 }
 
-export const getModules = async (userId = 'default'): Promise<Module[]> => {
-  const response = await api.get(`/modules?user_id=${userId}`);
+export const getModules = async (): Promise<Module[]> => {
+  const response = await api.get(`/modules`);
   return response.data.modules;
 };
 
-export const getModule = async (moduleId: string, userId = 'default'): Promise<Module> => {
-  const response = await api.get(`/modules/${moduleId}?user_id=${userId}`);
+export const getModule = async (moduleId: string): Promise<Module> => {
+  const response = await api.get(`/modules/${moduleId}`);
   return response.data.module;
 };
 
-export const getLesson = async (lessonId: string, userId = 'default'): Promise<Lesson> => {
-  const response = await api.get(`/lessons/${lessonId}?user_id=${userId}`);
+export const getLesson = async (lessonId: string): Promise<Lesson> => {
+  const response = await api.get(`/lessons/${lessonId}`);
   return response.data.lesson;
 };
 
-export const completeLesson = async (lessonId: string, userId = 'default') => {
-  const response = await api.post(`/lessons/${lessonId}/complete`, { lesson_id: lessonId, user_id: userId });
+export const completeLesson = async (lessonId: string) => {
+  const response = await api.post(`/lessons/${lessonId}/complete`, { lesson_id: lessonId });
   return response.data;
 };
 
-export const submitQuiz = async (lessonId: string, answers: number[], userId = 'default') => {
+export const submitQuiz = async (lessonId: string, answers: number[]) => {
   const response = await api.post(`/lessons/${lessonId}/quiz`, {
     lesson_id: lessonId,
     answers,
-    user_id: userId,
   });
   return response.data;
 };
 
-export const sendChatMessage = async (message: string, userId = 'default'): Promise<ChatResponse> => {
-  const response = await api.post('/chat', { message, user_id: userId });
+export const sendChatMessage = async (message: string): Promise<ChatResponse> => {
+  const response = await api.post('/chat', { message });
   return response.data;
 };
 
@@ -119,8 +127,8 @@ export const clearChatHistory = async () => {
   return response.data;
 };
 
-export const getUserStats = async (userId = 'default'): Promise<UserStats> => {
-  const response = await api.get(`/user/stats?user_id=${userId}`);
+export const getUserStats = async (): Promise<UserStats> => {
+  const response = await api.get(`/user/stats`);
   return response.data.stats;
 };
 
@@ -178,33 +186,53 @@ export interface AdventureResponse {
   new_badges?: Badge[];
 }
 
-export const getAdventures = async (userId = 'default'): Promise<Adventure[]> => {
-  const response = await api.get(`/adventures?user_id=${userId}`);
+export const getAdventures = async (): Promise<Adventure[]> => {
+  const response = await api.get(`/adventures`);
   return response.data.adventures;
 };
 
-export const getAdventure = async (chapterId: string, userId = 'default'): Promise<Adventure> => {
-  const response = await api.get(`/adventures/${chapterId}?user_id=${userId}`);
+export const getAdventure = async (chapterId: string): Promise<Adventure> => {
+  const response = await api.get(`/adventures/${chapterId}`);
   return response.data.adventure;
 };
 
 export const submitAdventureAnswer = async (
   chapterId: string,
   challengeId: string,
-  answer: number,
-  userId = 'default'
+  answer: number
 ): Promise<AdventureResponse> => {
   const response = await api.post(`/adventures/${chapterId}/answer`, {
     chapter_id: chapterId,
     challenge_id: challengeId,
     answer,
-    user_id: userId,
   });
   return response.data;
 };
 
-export const generateModule = async (topic: string, userId = 'default'): Promise<{ success: boolean; module: Module; message: string }> => {
-  const response = await api.post('/modules/generate', { topic, user_id: userId });
+export const generateModule = async (topic: string): Promise<{ success: boolean; module: Module; message: string }> => {
+  const response = await api.post('/modules/generate', { topic });
+  return response.data;
+};
+
+// Auth API
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  picture: string;
+}
+
+export const getGoogleAuthUrl = async (): Promise<{ auth_url: string }> => {
+  const response = await api.get('/auth/google');
+  return response.data;
+};
+
+export const handleGoogleCallback = async (code: string): Promise<{ 
+  access_token: string; 
+  token_type: string; 
+  user: AuthUser 
+}> => {
+  const response = await api.post('/auth/google/callback', { code });
   return response.data;
 };
 

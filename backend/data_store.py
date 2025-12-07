@@ -168,7 +168,11 @@ class UserDataStore:
                 "ai_chat_count": 0,
                 "correct_answers": 0,
                 "created_at": datetime.now().isoformat(),
-                "last_active": datetime.now().isoformat()
+                "last_active": datetime.now().isoformat(),
+                # OAuth fields (optional, will be populated if OAuth user)
+                "email": None,
+                "name": None,
+                "picture": None,
             }
             save_json(USERS_FILE, users)
         
