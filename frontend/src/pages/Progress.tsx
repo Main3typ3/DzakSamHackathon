@@ -46,6 +46,40 @@ const useAnimatedCounter = (end: number, duration: number = 1500) => {
   return { count, ref };
 };
 
+// StatCard component to properly use the hook
+interface StatCardProps {
+  stat: {
+    icon: React.ComponentType<{ className?: string }>;
+    label: string;
+    value: number;
+    color: string;
+    bg: string;
+    glow: string;
+  };
+  index: number;
+  isLoaded: boolean;
+}
+
+function StatCard({ stat, index, isLoaded }: StatCardProps) {
+  const { count, ref } = useAnimatedCounter(stat.value);
+  
+  return (
+    <div
+      ref={ref}
+      className={`group bg-slate-800/50 rounded-xl p-4 border border-purple-500/20 text-center transition-all duration-500 hover:border-purple-500/40 hover:-translate-y-1 hover:shadow-lg ${stat.glow} ${
+        isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+      }`}
+      style={{ transitionDelay: `${400 + index * 100}ms` }}
+    >
+      <div className={`w-10 h-10 ${stat.bg} rounded-lg flex items-center justify-center mx-auto mb-3 transition-all duration-300 group-hover:scale-110 group-hover:rotate-6`}>
+        <stat.icon className={`w-5 h-5 ${stat.color} transition-transform duration-300 group-hover:scale-110`} />
+      </div>
+      <div className="text-2xl font-bold text-white tabular-nums">{count}</div>
+      <div className="text-xs text-gray-500 transition-colors duration-300 group-hover:text-gray-400">{stat.label}</div>
+    </div>
+  );
+}
+
 export default function Progress() {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -243,25 +277,9 @@ export default function Progress() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-12">
-          {statCards.map((stat, index) => {
-            const { count, ref } = useAnimatedCounter(stat.value);
-            return (
-              <div
-                key={index}
-                ref={ref}
-                className={`group bg-slate-800/50 rounded-xl p-4 border border-purple-500/20 text-center transition-all duration-500 hover:border-purple-500/40 hover:-translate-y-1 hover:shadow-lg ${stat.glow} ${
-                  isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-                }`}
-                style={{ transitionDelay: `${400 + index * 100}ms` }}
-              >
-                <div className={`w-10 h-10 ${stat.bg} rounded-lg flex items-center justify-center mx-auto mb-3 transition-all duration-300 group-hover:scale-110 group-hover:rotate-6`}>
-                  <stat.icon className={`w-5 h-5 ${stat.color} transition-transform duration-300 group-hover:scale-110`} />
-                </div>
-                <div className="text-2xl font-bold text-white tabular-nums">{count}</div>
-                <div className="text-xs text-gray-500 transition-colors duration-300 group-hover:text-gray-400">{stat.label}</div>
-              </div>
-            );
-          })}
+          {statCards.map((stat, index) => (
+            <StatCard key={index} stat={stat} index={index} isLoaded={isLoaded} />
+          ))}
         </div>
 
         {/* Badges Section */}
