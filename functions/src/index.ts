@@ -1021,6 +1021,98 @@ app.post("/adventures/:chapterId/answer", (req, res) => {
   });
 });
 
+// Code Explainer endpoint
+app.post("/contracts/explain", async (req, res) => {
+  const { code, user_id = "default" } = req.body;
+
+  if (!code) {
+    res.status(400).json({ error: "Code is required" });
+    return;
+  }
+
+  try {
+    const prompt = `You are a blockchain and smart contract expert. Analyze the following code and provide a detailed explanation.
+
+Code to analyze:
+\`\`\`
+${code}
+\`\`\`
+
+Respond in valid JSON format with this structure:
+{
+  "summary": "A brief 2-3 sentence summary of what this code does",
+  "sections": [
+    {
+      "type": "function|variable|event|modifier|constructor|import|contract",
+      "title": "Name or description of this section",
+      "start_line": 1,
+      "end_line": 5,
+      "code": "The actual code for this section",
+      "explanation": "Detailed explanation of what this section does"
+    }
+  ],
+  "total_lines": 25
+}
+
+Be thorough but concise. Focus on blockchain-specific concepts like gas, storage, security patterns, etc.`;
+
+    const text = await generateWithFallback(prompt);
+    
+    // Parse the JSON response
+    let parsed;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        parsed = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error("No JSON found in response");
+      }
+    } catch {
+      // Fallback response if parsing fails
+      parsed = {
+        summary: "This code appears to be a smart contract or blockchain-related code.",
+        sections: [
+          {
+            type: "contract",
+            title: "Code Analysis",
+            start_line: 1,
+            end_line: code.split("\n").length,
+            code: code,
+            explanation: text
+          }
+        ],
+        total_lines: code.split("\n").length
+      };
+    }
+
+    // Update user XP
+    const user = getOrCreateUser(user_id);
+    const xpGained = 15;
+    user.xp += xpGained;
+    const oldLevel = user.level;
+    user.level = Math.floor(user.xp / 100) + 1;
+    const leveledUp = user.level > oldLevel;
+
+    res.json({
+      success: true,
+      summary: parsed.summary,
+      sections: parsed.sections,
+      total_lines: parsed.total_lines || code.split("\n").length,
+      xp_gained: xpGained,
+      leveled_up: leveledUp,
+      new_level: leveledUp ? user.level : undefined,
+      new_badges: [],
+      explanation_count: 1
+    });
+  } catch (error) {
+    console.error("Code explain error:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Failed to explain code" 
+    });
+  }
+});
+
 // Generate a new module using AI
 app.post("/modules/generate", async (req, res) => {
   const { topic } = req.body;
