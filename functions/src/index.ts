@@ -764,15 +764,15 @@ app.get("/modules/:moduleId", (req, res) => {
     res.status(404).json({ error: "Module not found" });
     return;
   }
-  res.json(module);
+  res.json({ module });
 });
 
 // Get lesson
 app.get("/lessons/:lessonId", (req, res) => {
-  for (const module of MODULES) {
-    const lesson = module.lessons.find((l) => l.id === req.params.lessonId);
+  for (const mod of MODULES) {
+    const lesson = mod.lessons.find((l) => l.id === req.params.lessonId);
     if (lesson) {
-      res.json({ ...lesson, module_id: module.id });
+      res.json({ lesson: { ...lesson, module_id: mod.id, module_title: mod.title } });
       return;
     }
   }
