@@ -95,6 +95,20 @@ BADGES = {
         "description": "Get 100% on any quiz",
         "icon": "star",
         "xp_reward": 30
+    },
+    "ai_contract_gen": {
+        "id": "ai_contract_gen",
+        "name": "Contract Creator",
+        "description": "Generate your first AI-powered smart contract",
+        "icon": "code",
+        "xp_reward": 20
+    },
+    "ai_contract_master": {
+        "id": "ai_contract_master",
+        "name": "AI Contract Master",
+        "description": "Generate 3 smart contracts with AI",
+        "icon": "trophy",
+        "xp_reward": 50
     }
 }
 

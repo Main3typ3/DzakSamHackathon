@@ -593,6 +593,113 @@ Return ONLY the JSON object, nothing else."""
         except Exception as e:
             return {"error": f"Failed to generate module: {str(e)}"}
     
+    async def generate_contract(self, description: str) -> Dict[str, Any]:
+        """
+        Generate a Solidity smart contract from natural language description.
+        
+        Flow: User Description → SpoonOS ChatBot → LLM → Solidity Code
+        
+        Args:
+            description: Natural language description of the desired contract
+        
+        Returns:
+            Dictionary with code, explanation, and warnings
+        """
+        # Contract generation system prompt with security guidelines
+        contract_prompt = f"""You are an expert Solidity smart contract developer. Generate secure, production-quality Solidity code based on the user's description.
+
+User Request: "{description}"
+
+Generate a complete Solidity smart contract that fulfills this request. Include:
+1. Proper SPDX license and pragma statements
+2. Security best practices (access control, reentrancy guards, etc.)
+3. Clear, commented code
+4. Standard patterns (ERC-20, ERC-721, etc.) when applicable
+
+Return ONLY valid JSON (no markdown, no code blocks) in this exact format:
+{{
+    "code": "// SPDX-License-Identifier: MIT\\npragma solidity ^0.8.0;\\n\\ncontract Example {{\\n    // Contract code here\\n}}",
+    "explanation": "Plain English explanation of what the contract does, how it works, and key features (2-3 sentences)",
+    "warnings": ["Warning 1", "Warning 2"]
+}}
+
+Security Guidelines:
+- Always include access control for privileged functions
+- Use SafeMath or Solidity ^0.8.0 for overflow protection
+- Include events for important state changes
+- Add reentrancy guards for external calls
+- Validate inputs and handle edge cases
+- Include pause/emergency stop mechanisms when appropriate
+
+Common Contract Templates:
+1. ERC-20 Token: Standard fungible token with totalSupply, balanceOf, transfer, approve, transferFrom
+2. ERC-721 NFT: Non-fungible token with ownerOf, transferFrom, approve, tokenURI
+3. Payment Splitter: Distributes payments to multiple addresses proportionally
+4. Voting/DAO: Proposal creation, voting, execution with quorum
+5. Escrow: Holds funds until conditions are met
+6. Time Lock: Delays execution of transactions
+
+Warnings to include (if applicable):
+- "No access control - any address can call privileged functions"
+- "No reentrancy protection - vulnerable to reentrancy attacks"
+- "No input validation - may fail with invalid inputs"
+- "Centralized control - owner has significant power"
+- "No upgrade mechanism - contract is immutable"
+- "Gas intensive operations - may hit block gas limit"
+- "Requires external oracle - depends on off-chain data"
+
+Return ONLY the JSON object, nothing else."""
+
+        messages = [{"role": "user", "content": contract_prompt}]
+        
+        try:
+            # Try SpoonOS first
+            if SPOON_SDK_AVAILABLE and self.chatbot is not None:
+                response_text = await self._simple_chat(messages)
+            else:
+                # Fallback to Gemini
+                import google.generativeai as genai
+                api_key = os.environ.get("GEMINI_API_KEY")
+                if not api_key:
+                    return {"error": "No API key configured"}
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel('gemini-2.0-flash')
+                response = model.generate_content(contract_prompt)
+                response_text = response.text
+            
+            # Clean up response
+            response_text = response_text.strip()
+            if response_text.startswith("```json"):
+                lines = response_text.split("\n")
+                response_text = "\n".join(lines[1:-1])
+            elif response_text.startswith("```"):
+                lines = response_text.split("\n")
+                response_text = "\n".join(lines[1:-1])
+            
+            # Parse JSON
+            contract_data = json.loads(response_text)
+            
+            # Validate structure
+            required_fields = ["code", "explanation"]
+            for field in required_fields:
+                if field not in contract_data:
+                    return {"error": f"Missing required field: {field}"}
+            
+            # Ensure warnings field exists
+            if "warnings" not in contract_data:
+                contract_data["warnings"] = []
+            
+            # Basic validation: check if code contains contract keyword
+            if "contract " not in contract_data["code"]:
+                return {"error": "Generated code does not appear to be a valid Solidity contract"}
+            
+            return {"success": True, "contract": contract_data}
+            
+        except json.JSONDecodeError as e:
+            return {"error": f"Failed to parse generated contract: {str(e)}"}
+        except Exception as e:
+            return {"error": f"Failed to generate contract: {str(e)}"}
+    
     def clear_history(self):
         """Clear conversation history."""
         self.conversation_history = []

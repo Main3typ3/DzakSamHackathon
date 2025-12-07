@@ -1,15 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Send, Trash2, Bot, User, Loader2, Sparkles } from 'lucide-react';
-import { sendChatMessage, clearChatHistory, type Badge } from '../api';
+import { Send, Trash2, Bot, User, Loader2, Sparkles, Code2, MessageSquare } from 'lucide-react';
+import { sendChatMessage, clearChatHistory, generateContract, type Badge, type ContractGenerationResponse } from '../api';
+import ContractCodeBlock from '../components/ContractCodeBlock';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  contract?: ContractGenerationResponse;
 }
 
 export default function Chat() {
+  const [contractMode, setContractMode] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -44,21 +47,41 @@ export default function Chat() {
     setLoading(true);
 
     try {
-      const response = await sendChatMessage(input);
+      if (contractMode) {
+        // Generate smart contract
+        const response = await generateContract(input);
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: response.response,
-      };
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: 'Contract generated successfully!',
+          contract: response,
+        };
 
-      setMessages((prev) => [...prev, assistantMessage]);
+        setMessages((prev) => [...prev, assistantMessage]);
 
-      if (response.new_badges && response.new_badges.length > 0) {
-        setNewBadges(response.new_badges);
-        setTimeout(() => setNewBadges([]), 5000);
+        if (response.new_badges && response.new_badges.length > 0) {
+          setNewBadges(response.new_badges);
+          setTimeout(() => setNewBadges([]), 5000);
+        }
+      } else {
+        // Regular chat
+        const response = await sendChatMessage(input);
+
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: response.response,
+        };
+
+        setMessages((prev) => [...prev, assistantMessage]);
+
+        if (response.new_badges && response.new_badges.length > 0) {
+          setNewBadges(response.new_badges);
+          setTimeout(() => setNewBadges([]), 5000);
+        }
       }
-    } catch (error) {
+    } catch {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -77,12 +100,27 @@ export default function Chat() {
         {
           id: '1',
           role: 'assistant',
-          content: "Chat cleared! What would you like to learn about blockchain today?",
+          content: contractMode 
+            ? "Contract Mode enabled! Describe the smart contract you'd like to create, and I'll generate the Solidity code for you."
+            : "Chat cleared! What would you like to learn about blockchain today?",
         },
       ]);
     } catch (error) {
       console.error('Failed to clear chat:', error);
     }
+  };
+
+  const toggleContractMode = () => {
+    setContractMode(!contractMode);
+    setMessages([
+      {
+        id: '1',
+        role: 'assistant',
+        content: !contractMode 
+          ? "Contract Mode enabled! Describe the smart contract you'd like to create, and I'll generate the Solidity code for you. Try something like: 'Create an ERC-20 token with 1 million supply'"
+          : "Contract Mode disabled. I'm back to answering your blockchain questions!",
+      },
+    ]);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -92,7 +130,12 @@ export default function Chat() {
     }
   };
 
-  const quickQuestions = [
+  const quickQuestions = contractMode ? [
+    "Create an ERC-20 token with 1 million supply",
+    "Build a simple NFT contract",
+    "Make a payment splitter for 3 addresses",
+    "Create a basic voting contract",
+  ] : [
     "What is blockchain?",
     "How do crypto wallets work?",
     "What are smart contracts?",
@@ -113,16 +156,41 @@ export default function Chat() {
       <div className="flex-1 max-w-4xl w-full mx-auto px-4 flex flex-col">
         <div className="flex items-center justify-between py-4">
           <div>
-            <h1 className="text-2xl font-bold text-white">AI Blockchain Tutor</h1>
+            <h1 className="text-2xl font-bold text-white">
+              {contractMode ? 'AI Contract Generator' : 'AI Blockchain Tutor'}
+            </h1>
             <p className="text-gray-400 text-sm">Powered by SpoonOS</p>
           </div>
-          <button
-            onClick={handleClear}
-            className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-slate-800"
-          >
-            <Trash2 className="w-4 h-4" />
-            <span>Clear Chat</span>
-          </button>
+          <div className="flex items-center space-x-3">
+            {/* Contract Mode Toggle */}
+            <button
+              onClick={toggleContractMode}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
+                contractMode
+                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg'
+                  : 'bg-slate-800 text-gray-400 hover:bg-slate-700'
+              }`}
+            >
+              {contractMode ? (
+                <>
+                  <Code2 className="w-4 h-4" />
+                  <span className="text-sm font-medium">Contract Mode</span>
+                </>
+              ) : (
+                <>
+                  <MessageSquare className="w-4 h-4" />
+                  <span className="text-sm font-medium">Chat Mode</span>
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleClear}
+              className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-slate-800"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Clear</span>
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-4 py-4">
@@ -157,9 +225,26 @@ export default function Chat() {
                   }`}
                 >
                   {message.role === 'assistant' ? (
-                    <div className="markdown-content prose prose-sm prose-invert max-w-none">
-                      <ReactMarkdown>{message.content}</ReactMarkdown>
-                    </div>
+                    <>
+                      <div className="markdown-content prose prose-sm prose-invert max-w-none">
+                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                      </div>
+                      {message.contract && (
+                        <div className="mt-4">
+                          <ContractCodeBlock
+                            code={message.contract.contract.code}
+                            explanation={message.contract.contract.explanation}
+                            warnings={message.contract.contract.warnings}
+                          />
+                          <div className="mt-3 flex items-center space-x-4 text-sm">
+                            <span className="text-green-400">+{message.contract.xp_gained} XP</span>
+                            {message.contract.leveled_up && (
+                              <span className="text-yellow-400">Level {message.contract.new_level}! 🎉</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <p>{message.content}</p>
                   )}
@@ -186,7 +271,9 @@ export default function Chat() {
 
         {messages.length === 1 && (
           <div className="py-4">
-            <p className="text-gray-500 text-sm mb-3">Try asking:</p>
+            <p className="text-gray-500 text-sm mb-3">
+              {contractMode ? 'Try generating:' : 'Try asking:'}
+            </p>
             <div className="flex flex-wrap gap-2">
               {quickQuestions.map((question, index) => (
                 <button
@@ -208,7 +295,7 @@ export default function Chat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Ask me anything about blockchain..."
+              placeholder={contractMode ? "Describe your smart contract..." : "Ask me anything about blockchain..."}
               className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
               disabled={loading}
             />

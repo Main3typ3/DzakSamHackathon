@@ -69,13 +69,25 @@ class AdventureAnswerRequest(BaseModel):
     challenge_id: str
     answer: int
 
-
 class GenerateModuleRequest(BaseModel):
     topic: str
 
 
 class GoogleAuthCallbackRequest(BaseModel):
     code: str
+
+
+class GenerateContractRequest(BaseModel):
+    """
+    Request model for smart contract generation.
+    
+    Attributes:
+        description: Natural language description of the desired smart contract.
+                    Should specify functionality, token properties, access control, etc.
+        user_id: User identifier for progress tracking and rewards.
+    """
+    description: str
+    user_id: Optional[str] = "default"
 
 
 @app.get("/")
@@ -159,6 +171,58 @@ async def generate_module(request: GenerateModuleRequest):
         "success": True,
         "module": result["module"],
         "message": f"Successfully generated module: {result['module']['title']}"
+    }
+
+
+@app.post("/api/contracts/generate")
+async def generate_contract(request: GenerateContractRequest):
+    """Generate a Solidity smart contract from natural language description."""
+    agent = get_agent()
+    result = await agent.generate_contract(request.description)
+    
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    # Track user progress and award badges
+    store = get_store()
+    user = store.get_or_create_user(request.user_id)
+    
+    # Initialize contract generation counter if not exists
+    if "contracts_generated" not in user:
+        user["contracts_generated"] = 0
+    
+    user["contracts_generated"] += 1
+    contracts_count = user["contracts_generated"]
+    
+    # Award XP for contract generation
+    xp_result = store.add_xp(request.user_id, 50)
+    
+    # Check for badges
+    new_badges = []
+    
+    # First contract badge
+    if contracts_count == 1 and "ai_contract_gen" not in user.get("badges", []):
+        badge_result = store.award_badge(request.user_id, "ai_contract_gen")
+        if badge_result.get("new_badges"):
+            new_badges.extend(badge_result["new_badges"])
+    
+    # Master badge after 3 contracts
+    if contracts_count >= 3 and "ai_contract_master" not in user.get("badges", []):
+        badge_result = store.award_badge(request.user_id, "ai_contract_master")
+        if badge_result.get("new_badges"):
+            new_badges.extend(badge_result["new_badges"])
+    
+    # Save user data
+    store.save_user(request.user_id, user)
+    
+    return {
+        "success": True,
+        "contract": result["contract"],
+        "xp_gained": 50,
+        "leveled_up": xp_result.get("leveled_up", False),
+        "new_level": xp_result.get("new_level"),
+        "new_badges": new_badges,
+        "contracts_generated": contracts_count
     }
 
 
