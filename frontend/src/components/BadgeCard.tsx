@@ -13,6 +13,9 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   star: Star,
 };
 
+// Check if the icon is an emoji (not in iconMap)
+const isEmoji = (icon: string) => !iconMap[icon];
+
 interface BadgeCardProps {
   badge: Badge;
   earned?: boolean;
@@ -20,6 +23,7 @@ interface BadgeCardProps {
 
 export default function BadgeCard({ badge, earned = false }: BadgeCardProps) {
   const Icon = iconMap[badge.icon] || Trophy;
+  const hasEmojiIcon = isEmoji(badge.icon);
   const [isHovered, setIsHovered] = useState(false);
 
   return (
@@ -54,7 +58,11 @@ export default function BadgeCard({ badge, earned = false }: BadgeCardProps) {
           }`}
         >
           {earned ? (
-            <Icon className="w-6 h-6 text-white transition-transform duration-300 group-hover:scale-110" />
+            hasEmojiIcon ? (
+              <span className="text-2xl transition-transform duration-300 group-hover:scale-110">{badge.icon}</span>
+            ) : (
+              <Icon className="w-6 h-6 text-white transition-transform duration-300 group-hover:scale-110" />
+            )
           ) : (
             <Lock className="w-5 h-5 text-gray-500 transition-transform duration-300 group-hover:scale-110" />
           )}
