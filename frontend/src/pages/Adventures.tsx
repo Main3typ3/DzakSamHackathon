@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Sparkles, Lock, CheckCircle, ArrowRight, BookOpen, Trophy } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Sparkles, Lock, CheckCircle, ArrowRight, BookOpen, Trophy, LogIn } from 'lucide-react';
 import { getAdventures, type Adventure } from '../api';
-import AuthRequired from '../components/AuthRequired';
+import { useAuth } from '../context/AuthContext';
 
 // Skeleton loader for adventure cards
 const SkeletonCard = () => (
@@ -22,9 +22,23 @@ const SkeletonCard = () => (
   </div>
 );
 
-function AdventuresContent() {
+export default function Adventures() {
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [adventures, setAdventures] = useState<Adventure[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  const handleStartAdventure = (adventureId: string, isUnlocked: boolean) => {
+    if (!isUnlocked) return;
+    
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+    
+    navigate(`/adventure/${adventureId}`);
+  };
 
   useEffect(() => {
     const loadAdventures = async () => {
@@ -199,8 +213,8 @@ function AdventuresContent() {
 
                       {/* Action Button */}
                       {unlocked ? (
-                        <Link
-                          to={`/adventure/${adventure.id}`}
+                        <button
+                          onClick={() => handleStartAdventure(adventure.id, unlocked)}
                           className="inline-flex items-center space-x-2 btn-primary group relative overflow-hidden"
                         >
                           <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
@@ -212,7 +226,7 @@ function AdventuresContent() {
                               : 'Start Adventure'}
                           </span>
                           <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                        </Link>
+                        </button>
                       ) : (
                         <div className="inline-flex items-center space-x-2 px-6 py-3 bg-slate-700 text-gray-500 rounded-lg cursor-not-allowed">
                           <Lock className="w-4 h-4" />
@@ -237,25 +251,57 @@ function AdventuresContent() {
             Complete challenges, make choices, and earn rewards!
           </p>
           {adventures.length > 0 && !adventures[0].completed && (
-            <Link
-              to={`/adventure/${adventures[0].id}`}
+            <button
+              onClick={() => handleStartAdventure(adventures[0].id, true)}
               className="btn-primary inline-flex items-center space-x-2 group"
             >
               <span>Begin Your Journey</span>
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Link>
+            </button>
           )}
         </div>
+
+        {/* Auth Modal */}
+        {showAuthModal && (
+          <div 
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
+            onClick={() => setShowAuthModal(false)}
+          >
+            <div 
+              className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl max-w-md w-full p-8 border border-purple-500/30 shadow-2xl shadow-purple-500/20 animate-scale-in"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full mb-4 shadow-lg shadow-purple-500/30 animate-bounce-in">
+                  <Sparkles className="w-8 h-8 text-white" />
+                </div>
+                
+                <h3 className="text-2xl font-bold text-white mb-2">Ready for Adventure?</h3>
+                <p className="text-gray-400 mb-6">
+                  Sign in to start your blockchain adventure! Your progress will be saved and you'll earn XP as you learn.
+                </p>
+                
+                <div className="space-y-3">
+                  <Link
+                    to="/login"
+                    className="w-full btn-primary py-3 flex items-center justify-center space-x-2 group"
+                  >
+                    <LogIn className="w-5 h-5" />
+                    <span>Sign In with Google</span>
+                  </Link>
+                  
+                  <button
+                    onClick={() => setShowAuthModal(false)}
+                    className="w-full py-2 text-gray-400 hover:text-white transition-colors"
+                  >
+                    Maybe Later
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
-  );
-}
-
-// Export wrapped component with auth requirement
-export default function Adventures() {
-  return (
-    <AuthRequired feature="Adventure Mode">
-      <AdventuresContent />
-    </AuthRequired>
   );
 }

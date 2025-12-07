@@ -2,9 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Clock, Zap, CheckCircle, ChevronRight, Loader2 } from 'lucide-react';
 import { getModule, type Module as ModuleType, type Lesson } from '../api';
-import AuthRequired from '../components/AuthRequired';
 
-function ModuleContent() {
+export default function Module() {
   const { moduleId } = useParams<{ moduleId: string }>();
   const [module, setModule] = useState<ModuleType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -148,14 +147,5 @@ function ModuleContent() {
         </div>
       </div>
     </div>
-  );
-}
-
-// Export wrapped component with auth requirement
-export default function Module() {
-  return (
-    <AuthRequired feature="Module Content">
-      <ModuleContent />
-    </AuthRequired>
   );
 }

@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { Zap, Trophy, BookOpen, MessageSquare, CheckCircle, Flame, Star } from 'lucide-react';
 import BadgeCard from '../components/BadgeCard';
 import { getUserStats, type UserStats } from '../api';
-import AuthRequired from '../components/AuthRequired';
 
 // Animated counter hook
 const useAnimatedCounter = (end: number, duration: number = 1500) => {
@@ -47,7 +46,7 @@ const useAnimatedCounter = (end: number, duration: number = 1500) => {
   return { count, ref };
 };
 
-function ProgressContent() {
+export default function Progress() {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -345,14 +344,5 @@ function ProgressContent() {
         )}
       </div>
     </div>
-  );
-}
-
-// Export wrapped component with auth requirement
-export default function Progress() {
-  return (
-    <AuthRequired feature="Learning Progress">
-      <ProgressContent />
-    </AuthRequired>
   );
 }

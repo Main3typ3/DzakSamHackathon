@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { Loader2, Sparkles, X, BookOpen, Zap } from 'lucide-react';
 import ModuleCard from '../components/ModuleCard';
 import { getModules, generateModule, type Module } from '../api';
-import AuthRequired from '../components/AuthRequired';
+import { useAuth } from '../context/AuthContext';
+import { AuthPrompt } from '../components/AuthRequired';
 
-function LearnContent() {
+export default function Learn() {
+  const { isAuthenticated } = useAuth();
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -13,6 +15,7 @@ function LearnContent() {
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
 
   const fetchModules = async () => {
     try {
@@ -40,8 +43,15 @@ function LearnContent() {
       return;
     }
 
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      setShowAuthPrompt(true);
+      return;
+    }
+
     setGenerating(true);
     setGenerateError(null);
+    setShowAuthPrompt(false);
 
     try {
       const result = await generateModule(topic);
@@ -266,23 +276,37 @@ function LearnContent() {
               </div>
             )}
 
-            <button
-              onClick={handleGenerateModule}
-              disabled={generating || !topic.trim()}
-              className="group w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-purple-500/30"
-            >
-              {generating ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Generating Module...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-5 h-5 transition-transform duration-300 group-hover:rotate-12" />
-                  <span>Generate Module</span>
-                </>
-              )}
-            </button>
+            {/* Auth prompt when user tries to generate without signing in */}
+            {showAuthPrompt && !isAuthenticated && (
+              <div className="mb-4">
+                <AuthPrompt
+                  variant="default"
+                  feature="Module Generator"
+                  description="Sign in to use AI-powered module generation. Create custom learning content on any blockchain topic!"
+                  icon={Sparkles}
+                />
+              </div>
+            )}
+
+            {!showAuthPrompt && (
+              <button
+                onClick={handleGenerateModule}
+                disabled={generating || !topic.trim()}
+                className="group w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-purple-500/30"
+              >
+                {generating ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Generating Module...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-5 h-5 transition-transform duration-300 group-hover:rotate-12" />
+                    <span>Generate Module</span>
+                  </>
+                )}
+              </button>
+            )}
 
             {generating && (
               <div className="mt-4">
@@ -298,14 +322,5 @@ function LearnContent() {
         </div>
       )}
     </div>
-  );
-}
-
-// Export wrapped component with auth requirement
-export default function Learn() {
-  return (
-    <AuthRequired feature="Learning Modules">
-      <LearnContent />
-    </AuthRequired>
   );
 }

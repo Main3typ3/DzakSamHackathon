@@ -3,7 +3,8 @@ import { Code, Sparkles, FileCode, Loader2, Zap } from 'lucide-react';
 import CodeInput from '../components/CodeInput';
 import ExplainableCode from '../components/ExplainableCode';
 import ExplanationPanel from '../components/ExplanationPanel';
-import AuthRequired from '../components/AuthRequired';
+import { useAuth } from '../context/AuthContext';
+import { AuthPrompt } from '../components/AuthRequired';
 import { explainCode, type CodeSection, type Badge } from '../api';
 
 // Animated number component
@@ -107,7 +108,8 @@ contract Voting {
   }
 ];
 
-function CodeExplainerContent() {
+export default function CodeExplainer() {
+  const { isAuthenticated } = useAuth();
   const [code, setCode] = useState('');
   const [sections, setSections] = useState<CodeSection[]>([]);
   const [summary, setSummary] = useState('');
@@ -118,12 +120,20 @@ function CodeExplainerContent() {
   const [newBadges, setNewBadges] = useState<Badge[]>([]);
   const [xpGained, setXpGained] = useState(0);
   const [hasExplained, setHasExplained] = useState(false);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
 
   const handleExplain = async () => {
     if (!code.trim()) return;
 
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      setShowAuthPrompt(true);
+      return;
+    }
+
     setLoading(true);
     setHasExplained(false);
+    setShowAuthPrompt(false);
 
     try {
       const result = await explainCode(code);
@@ -280,6 +290,18 @@ function CodeExplainerContent() {
                   </>
                 )}
               </button>
+
+              {/* Auth prompt when user tries to explain without signing in */}
+              {showAuthPrompt && !isAuthenticated && (
+                <div className="mt-4">
+                  <AuthPrompt
+                    variant="default"
+                    feature="Code Explainer"
+                    description="Sign in to unlock AI-powered smart contract analysis and earn XP for each contract you explain!"
+                    icon={Code}
+                  />
+                </div>
+              )}
             </div>
 
             {/* How it works section */}
@@ -383,14 +405,5 @@ function CodeExplainerContent() {
         )}
       </div>
     </div>
-  );
-}
-
-// Export wrapped component with auth requirement
-export default function CodeExplainer() {
-  return (
-    <AuthRequired feature="the Smart Contract Explainer">
-      <CodeExplainerContent />
-    </AuthRequired>
   );
 }

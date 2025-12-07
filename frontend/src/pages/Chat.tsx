@@ -3,7 +3,8 @@ import ReactMarkdown from 'react-markdown';
 import { Send, Trash2, Bot, User, Sparkles, Code2, MessageSquare, Zap } from 'lucide-react';
 import { sendChatMessage, clearChatHistory, generateContract, type Badge, type ContractGenerationResponse } from '../api';
 import ContractCodeBlock from '../components/ContractCodeBlock';
-import AuthRequired from '../components/AuthRequired';
+import { useAuth } from '../context/AuthContext';
+import { AuthPrompt } from '../components/AuthRequired';
 
 interface Message {
   id: string;
@@ -22,8 +23,10 @@ const TypingIndicator = () => (
   </div>
 );
 
-function ChatContent() {
+export default function Chat() {
+  const { isAuthenticated } = useAuth();
   const [contractMode, setContractMode] = useState(false);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -60,6 +63,12 @@ function ChatContent() {
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
+
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      setShowAuthPrompt(true);
+      return;
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -350,6 +359,18 @@ function ChatContent() {
             </div>
           )}
 
+          {/* Auth prompt when user tries to send without signing in */}
+          {showAuthPrompt && !isAuthenticated && (
+            <div className="py-4">
+              <AuthPrompt
+                variant="chat"
+                feature="AI Tutor"
+                description="Hey there! 👋 To chat with the AI Tutor, please sign in with your Google account. It only takes a second and unlocks personalized learning!"
+                icon={MessageSquare}
+              />
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -416,14 +437,5 @@ function ChatContent() {
         </div>
       </div>
     </div>
-  );
-}
-
-// Export wrapped component with auth requirement
-export default function Chat() {
-  return (
-    <AuthRequired feature="the AI Tutor">
-      <ChatContent />
-    </AuthRequired>
   );
 }

@@ -3,10 +3,12 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { ArrowLeft, CheckCircle, Sparkles, Loader2, Zap } from 'lucide-react';
 import Quiz from '../components/Quiz';
+import { AuthPrompt } from '../components/AuthRequired';
 import { getLesson, completeLesson, submitQuiz, type Lesson as LessonType } from '../api';
-import AuthRequired from '../components/AuthRequired';
+import { useAuth } from '../context/AuthContext';
 
-function LessonContent() {
+export default function Lesson() {
+  const { isAuthenticated } = useAuth();
   const { lessonId } = useParams<{ lessonId: string }>();
   const navigate = useNavigate();
   const [lesson, setLesson] = useState<LessonType | null>(null);
@@ -17,6 +19,7 @@ function LessonContent() {
   const [submitting, setSubmitting] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [lessonCompleted, setLessonCompleted] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [notification, setNotification] = useState<{
     type: 'success' | 'error';
     message: string;
@@ -71,6 +74,12 @@ function LessonContent() {
 
   const handleQuizSubmit = async (answers: number[]) => {
     if (!lessonId) return;
+    
+    // Check authentication before submitting quiz
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
     
     setSubmitting(true);
     try {
@@ -253,15 +262,34 @@ function LessonContent() {
           )}
         </div>
       </div>
-    </div>
-  );
-}
 
-// Export wrapped component with auth requirement
-export default function Lesson() {
-  return (
-    <AuthRequired feature="Lessons & Quizzes">
-      <LessonContent />
-    </AuthRequired>
+      {/* Auth Modal for Quiz Submission */}
+      {showAuthModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 max-w-md mx-4 animate-fade-in-up">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">🏆</span>
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-2">Track Your Progress!</h3>
+              <p className="text-gray-400 mb-6">
+                Sign in to submit your quiz, earn XP, and track your learning journey on the blockchain.
+              </p>
+              <AuthPrompt 
+                variant="default"
+                feature="Quiz Submission"
+                description="Sign in to submit your quiz, earn XP, and track your learning progress"
+              />
+              <button
+                onClick={() => setShowAuthModal(false)}
+                className="mt-4 text-gray-400 hover:text-white transition-colors"
+              >
+                Continue without signing in
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

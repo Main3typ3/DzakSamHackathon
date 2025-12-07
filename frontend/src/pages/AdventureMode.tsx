@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { Sparkles, ArrowRight, Trophy, XCircle, CheckCircle, Star, Zap } from 'lucide-react';
+import { Sparkles, ArrowRight, Trophy, XCircle, CheckCircle, Star, Zap, LogIn } from 'lucide-react';
 import { getAdventure, submitAdventureAnswer, type Adventure, type AdventureResponse } from '../api';
-import AuthRequired from '../components/AuthRequired';
+import { useAuth } from '../context/AuthContext';
 
 // Animated number component
 const AnimatedNumber = ({ value }: { value: number }) => {
@@ -32,7 +32,8 @@ const AnimatedNumber = ({ value }: { value: number }) => {
   return <span>{displayValue}</span>;
 };
 
-function AdventureModeContent() {
+export default function AdventureMode() {
+  const { isAuthenticated } = useAuth();
   const { chapterId } = useParams<{ chapterId: string }>();
   const navigate = useNavigate();
   
@@ -44,6 +45,7 @@ function AdventureModeContent() {
   const [feedback, setFeedback] = useState<AdventureResponse | null>(null);
   const [stage, setStage] = useState<'intro' | 'challenge' | 'conclusion'>('intro');
   const [score, setScore] = useState(0);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
     const loadAdventure = async () => {
@@ -88,6 +90,12 @@ function AdventureModeContent() {
 
   const handleSubmitAnswer = async () => {
     if (selectedAnswer === null || !adventure || !chapterId) return;
+
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
 
     const currentChallenge = adventure.challenges[currentChallengeIndex];
     
@@ -422,16 +430,48 @@ function AdventureModeContent() {
             </div>
           </div>
         )}
+
+        {/* Auth Modal */}
+        {showAuthModal && (
+          <div 
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
+            onClick={() => setShowAuthModal(false)}
+          >
+            <div 
+              className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl max-w-md w-full p-8 border border-purple-500/30 shadow-2xl shadow-purple-500/20 animate-scale-in"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full mb-4 shadow-lg shadow-purple-500/30 animate-bounce-in">
+                  <Sparkles className="w-8 h-8 text-white" />
+                </div>
+                
+                <h3 className="text-2xl font-bold text-white mb-2">Sign In to Continue</h3>
+                <p className="text-gray-400 mb-6">
+                  Sign in to submit your answer and track your adventure progress. Your score and XP will be saved!
+                </p>
+                
+                <div className="space-y-3">
+                  <Link
+                    to="/login"
+                    className="w-full btn-primary py-3 flex items-center justify-center space-x-2 group"
+                  >
+                    <LogIn className="w-5 h-5" />
+                    <span>Sign In with Google</span>
+                  </Link>
+                  
+                  <button
+                    onClick={() => setShowAuthModal(false)}
+                    className="w-full py-2 text-gray-400 hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
-  );
-}
-
-// Export wrapped component with auth requirement
-export default function AdventureMode() {
-  return (
-    <AuthRequired feature="Adventure Mode">
-      <AdventureModeContent />
-    </AuthRequired>
   );
 }

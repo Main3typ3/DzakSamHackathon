@@ -99,9 +99,15 @@ export default function AuthRequired({ children, feature = 'this feature' }: Aut
 // Inline auth prompt for specific features within a page
 export function AuthPrompt({ 
   feature = 'this feature',
+  description,
+  icon: Icon = Lock,
+  variant = 'default',
   onSignIn 
 }: { 
   feature?: string;
+  description?: string;
+  icon?: React.ElementType;
+  variant?: 'default' | 'chat' | 'compact' | 'card';
   onSignIn?: () => void;
 }) {
   const navigate = useNavigate();
@@ -114,15 +120,81 @@ export function AuthPrompt({
     }
   };
 
+  // Chat-style prompt (fits in a chat message area)
+  if (variant === 'chat') {
+    return (
+      <div className="flex items-start space-x-3 animate-fade-in-up">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 flex items-center justify-center flex-shrink-0 animate-bounce-in">
+          <Icon className="w-5 h-5 text-white" />
+        </div>
+        <div className="flex-1 bg-gradient-to-br from-purple-900/40 to-pink-900/30 rounded-2xl rounded-tl-none border border-purple-500/30 p-4">
+          <p className="text-white mb-3">
+            {description || `Hey there! 👋 To use the ${feature}, please sign in with your Google account. It only takes a second!`}
+          </p>
+          <button
+            onClick={handleSignIn}
+            className="btn-primary px-4 py-2 text-sm flex items-center space-x-2 group"
+          >
+            <LogIn className="w-4 h-4" />
+            <span>Sign In with Google</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Compact inline prompt
+  if (variant === 'compact') {
+    return (
+      <div className="flex items-center justify-center space-x-3 py-3 px-4 bg-purple-900/30 rounded-lg border border-purple-500/30 animate-fade-in-up">
+        <Icon className="w-5 h-5 text-purple-400" />
+        <span className="text-gray-300 text-sm">{description || `Sign in to use ${feature}`}</span>
+        <button
+          onClick={handleSignIn}
+          className="btn-primary px-3 py-1.5 text-sm flex items-center space-x-1"
+        >
+          <LogIn className="w-3 h-3" />
+          <span>Sign In</span>
+        </button>
+      </div>
+    );
+  }
+
+  // Card-style prompt (for modals or larger areas)
+  if (variant === 'card') {
+    return (
+      <div className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 rounded-xl border border-purple-500/30 p-8 text-center animate-fade-in-up backdrop-blur-lg">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full mb-4 shadow-lg shadow-purple-500/30 animate-bounce-in">
+          <Icon className="w-8 h-8 text-white" />
+        </div>
+        
+        <h3 className="text-2xl font-bold text-white mb-2">Sign In Required</h3>
+        <p className="text-gray-400 mb-6 max-w-sm mx-auto">
+          {description || `${feature} is a premium feature that requires authentication.`}
+        </p>
+        
+        <button
+          onClick={handleSignIn}
+          className="btn-primary px-8 py-3 text-lg flex items-center justify-center space-x-2 mx-auto group relative overflow-hidden"
+        >
+          <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
+          <LogIn className="w-5 h-5" />
+          <span>Sign In with Google</span>
+        </button>
+      </div>
+    );
+  }
+
+  // Default prompt
   return (
     <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 rounded-xl border border-purple-500/30 p-6 text-center animate-fade-in-up">
-      <div className="inline-flex items-center justify-center w-14 h-14 bg-purple-600/30 rounded-full mb-4">
-        <Lock className="w-7 h-7 text-purple-400" />
+      <div className="inline-flex items-center justify-center w-14 h-14 bg-purple-600/30 rounded-full mb-4 animate-bounce-in">
+        <Icon className="w-7 h-7 text-purple-400" />
       </div>
       
       <h3 className="text-xl font-semibold text-white mb-2">Sign In to Continue</h3>
       <p className="text-gray-400 text-sm mb-4">
-        {feature} requires you to be signed in.
+        {description || `${feature} requires you to be signed in.`}
       </p>
       
       <button
