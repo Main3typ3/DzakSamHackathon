@@ -105,12 +105,19 @@ const founders: Founder[] = [
 
 export default function About() {
   return (
-    <div className="min-h-screen pt-20 pb-12 px-4">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen pt-20 pb-12 px-4 overflow-hidden">
+      {/* Animated background */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-1/4 -left-32 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse-slow"></div>
+        <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl animate-pulse-slow animation-delay-500"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-purple-600/5 rounded-full blur-3xl"></div>
+      </div>
+
+      <div className="max-w-6xl mx-auto relative z-10">
         {/* Header */}
-        <div className="text-center mb-16">
+        <div className="text-center mb-16 animate-fade-in-up">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-            Meet the Gang
+            Meet the <span className="text-gradient">Gang</span>
           </h1>
           <p className="text-xl text-gray-300 max-w-2xl mx-auto">
             We're on a mission to make blockchain education accessible, 
@@ -120,25 +127,28 @@ export default function About() {
 
         {/* Founders Grid */}
         <div className="grid md:grid-cols-2 gap-8 md:gap-12">
-          {founders.map((founder) => (
+          {founders.map((founder, index) => (
             <div
               key={founder.name}
-              className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 md:p-8 border border-white/20 hover:border-purple-500/50 transition-all duration-300"
+              className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 md:p-8 border border-white/20 hover:border-purple-500/50 transition-all duration-500 hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 animate-fade-in-up group"
+              style={{ animationDelay: `${index * 150}ms` }}
             >
               {/* Photo */}
               <div className="relative mb-6">
-                <div className="w-48 h-48 mx-auto rounded-full overflow-hidden border-4 border-purple-500/50 shadow-lg shadow-purple-500/20">
+                <div className="w-48 h-48 mx-auto rounded-full overflow-hidden border-4 border-purple-500/50 shadow-lg shadow-purple-500/20 group-hover:border-purple-400 transition-all duration-300 group-hover:shadow-purple-500/40">
                   <img
                     src={founder.image}
                     alt={founder.name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
                 </div>
+                {/* Glow ring on hover */}
+                <div className="absolute inset-0 w-48 h-48 mx-auto rounded-full bg-gradient-to-r from-purple-500/0 to-pink-500/0 group-hover:from-purple-500/20 group-hover:to-pink-500/20 blur-xl transition-all duration-500"></div>
               </div>
 
               {/* Info */}
               <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold text-white mb-1">
+                <h2 className="text-2xl font-bold text-white mb-1 group-hover:text-gradient transition-all duration-300">
                   {founder.name}
                 </h2>
                 <p className="text-purple-400 font-medium mb-4">
@@ -157,7 +167,7 @@ export default function About() {
                     href={social.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`p-3 rounded-full bg-white/10 text-white transition-all duration-300 ${social.color} hover:scale-110`}
+                    className={`p-3 rounded-full bg-white/10 text-white transition-all duration-300 ${social.color} hover:scale-125 hover:shadow-lg`}
                     title={social.name}
                   >
                     {social.icon}
@@ -169,10 +179,10 @@ export default function About() {
         </div>
 
         {/* Mission Section */}
-        <div className="mt-16 text-center">
-          <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-2xl p-8 md:p-12 border border-white/10">
+        <div className="mt-16 text-center animate-fade-in-up animation-delay-300">
+          <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-2xl p-8 md:p-12 border border-white/10 hover:border-purple-500/30 transition-all duration-300">
             <h2 className="text-3xl font-bold text-white mb-4">
-              Our Mission
+              Our <span className="text-gradient">Mission</span>
             </h2>
             <p className="text-gray-300 text-lg max-w-3xl mx-auto leading-relaxed">
               ChainQuest Academy was born from a simple idea: learning blockchain 
@@ -185,15 +195,16 @@ export default function About() {
                 href="https://github.com/Main3typ3/DzakSamHackathon"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-300"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-300 hover:scale-105 group"
               >
-                <Github className="w-5 h-5" />
+                <Github className="w-5 h-5 group-hover:rotate-12 transition-transform" />
                 View on GitHub
               </a>
               <a
                 href="/learn"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all duration-300"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all duration-300 hover:scale-105 group relative overflow-hidden"
               >
+                <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
                 <ExternalLink className="w-5 h-5" />
                 Start Learning
               </a>
@@ -202,9 +213,11 @@ export default function About() {
         </div>
 
         {/* Built for Hackathon */}
-        <div className="mt-12 text-center text-gray-400 text-sm">
-          <p>
-            Built with ❤️ for the Scoop AI Hackathon 2025
+        <div className="mt-12 text-center text-gray-400 text-sm animate-fade-in-up animation-delay-400">
+          <p className="flex items-center justify-center space-x-2">
+            <span>Built with</span>
+            <span className="text-red-400 animate-pulse">❤️</span>
+            <span>for the Scoop AI Hackathon 2025</span>
           </p>
         </div>
       </div>

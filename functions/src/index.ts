@@ -27,6 +27,7 @@ const OAUTH_REDIRECT_URI = "https://us-central1-chainquest-academy.cloudfunction
 
 // Initialize Firebase Admin
 admin.initializeApp();
+const db = admin.firestore();
 
 // Initialize Express app
 const app = express();
@@ -744,38 +745,104 @@ app.post("/auth/logout", (req, res) => {
   res.json({ success: true, message: "Logged out successfully" });
 });
 
-// Get all modules
-app.get("/modules", (req, res) => {
-  const modulesWithProgress = MODULES.map((module) => ({
-    ...module,
-    progress: {
-      completed: 0,
-      total: module.lessons.length,
-      percentage: 0,
-    },
-  }));
-  res.json({ modules: modulesWithProgress });
+// Get all modules (including dynamically generated ones from Firestore)
+app.get("/modules", async (req, res) => {
+  try {
+    // Get base modules with progress
+    const baseModulesWithProgress = MODULES.map((module) => ({
+      ...module,
+      progress: {
+        completed: 0,
+        total: module.lessons.length,
+        percentage: 0,
+      },
+    }));
+    
+    // Fetch generated modules from Firestore
+    const generatedModulesSnapshot = await db.collection("generated_modules").get();
+    const generatedModules = generatedModulesSnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        ...data,
+        progress: {
+          completed: 0,
+          total: data.lessons?.length || 0,
+          percentage: 0,
+        },
+      };
+    });
+    
+    // Combine base modules with generated modules
+    const allModules = [...baseModulesWithProgress, ...generatedModules];
+    res.json({ modules: allModules });
+  } catch (error) {
+    console.error("Error fetching modules:", error);
+    // Fallback to base modules only
+    const modulesWithProgress = MODULES.map((module) => ({
+      ...module,
+      progress: {
+        completed: 0,
+        total: module.lessons.length,
+        percentage: 0,
+      },
+    }));
+    res.json({ modules: modulesWithProgress });
+  }
 });
 
-// Get single module
-app.get("/modules/:moduleId", (req, res) => {
-  const module = MODULES.find((m) => m.id === req.params.moduleId);
-  if (!module) {
-    res.status(404).json({ error: "Module not found" });
+// Get single module (check both static and generated modules)
+app.get("/modules/:moduleId", async (req, res) => {
+  const moduleId = req.params.moduleId;
+  
+  // First check static modules
+  const staticModule = MODULES.find((m) => m.id === moduleId);
+  if (staticModule) {
+    res.json({ module: staticModule });
     return;
   }
-  res.json({ module });
+  
+  // Then check Firestore for generated modules
+  try {
+    const doc = await db.collection("generated_modules").doc(moduleId).get();
+    if (doc.exists) {
+      res.json({ module: doc.data() });
+      return;
+    }
+  } catch (error) {
+    console.error("Error fetching generated module:", error);
+  }
+  
+  res.status(404).json({ error: "Module not found" });
 });
 
-// Get lesson
-app.get("/lessons/:lessonId", (req, res) => {
+// Get lesson (check both static and generated modules)
+app.get("/lessons/:lessonId", async (req, res) => {
+  const lessonId = req.params.lessonId;
+  
+  // First check static modules
   for (const mod of MODULES) {
-    const lesson = mod.lessons.find((l) => l.id === req.params.lessonId);
+    const lesson = mod.lessons.find((l) => l.id === lessonId);
     if (lesson) {
       res.json({ lesson: { ...lesson, module_id: mod.id, module_title: mod.title } });
       return;
     }
   }
+  
+  // Then check Firestore for generated modules
+  try {
+    const snapshot = await db.collection("generated_modules").get();
+    for (const doc of snapshot.docs) {
+      const moduleData = doc.data();
+      const lesson = moduleData.lessons?.find((l: { id: string }) => l.id === lessonId);
+      if (lesson) {
+        res.json({ lesson: { ...lesson, module_id: moduleData.id, module_title: moduleData.title } });
+        return;
+      }
+    }
+  } catch (error) {
+    console.error("Error fetching lesson from generated module:", error);
+  }
+  
   res.status(404).json({ error: "Lesson not found" });
 });
 
@@ -1274,6 +1341,18 @@ Only return valid JSON, no markdown code blocks or extra text.`;
       total: moduleData.lessons?.length || 0,
       percentage: 0,
     };
+
+    // Save the generated module to Firestore for persistence
+    try {
+      await db.collection("generated_modules").doc(moduleData.id).set({
+        ...moduleData,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      console.log(`Saved generated module: ${moduleData.id}`);
+    } catch (saveError) {
+      console.error("Error saving generated module to Firestore:", saveError);
+      // Continue even if save fails - module is still returned to user
+    }
 
     res.json({
       success: true,

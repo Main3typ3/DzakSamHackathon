@@ -39,13 +39,20 @@ export default function ExplainableCode({
   };
 
   return (
-    <div className="bg-slate-900 rounded-xl border border-purple-500/20 overflow-hidden">
-      <div className="bg-slate-800 border-b border-purple-500/20 px-4 py-2 flex items-center justify-between">
-        <span className="text-gray-400 text-sm font-mono">contract.sol</span>
+    <div className="bg-slate-900 rounded-xl border border-purple-500/20 overflow-hidden transition-all duration-300 hover:border-purple-500/30">
+      <div className="bg-slate-800 border-b border-purple-500/20 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="flex space-x-1.5">
+            <div className="w-3 h-3 rounded-full bg-red-500"></div>
+            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+          </div>
+          <span className="text-gray-400 text-sm font-mono">contract.sol</span>
+        </div>
         <span className="text-gray-500 text-xs">{lines.length} lines</span>
       </div>
       
-      <div ref={codeRef} className="overflow-x-auto">
+      <div ref={codeRef} className="overflow-x-auto max-h-[500px]">
         <div className="font-mono text-sm">
           {lines.map((line, idx) => {
             const lineNum = idx + 1;
@@ -57,8 +64,8 @@ export default function ExplainableCode({
               <div
                 key={idx}
                 ref={isSelected && isFirstLineOfSection ? selectedRef : null}
-                className={`flex hover:bg-slate-800/50 transition-colors group ${
-                  isSelected ? 'bg-purple-900/30 border-l-2 border-purple-500' : ''
+                className={`flex hover:bg-slate-800/50 transition-all duration-200 group ${
+                  isSelected ? 'bg-purple-900/30 border-l-2 border-purple-500 line-highlight' : ''
                 } ${section ? 'cursor-pointer' : ''}`}
                 onClick={() => section && onSectionClick(section)}
               >
@@ -70,7 +77,7 @@ export default function ExplainableCode({
                     {line || ' '}
                   </pre>
                   {section && isFirstLineOfSection && (
-                    <div className="absolute left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-purple-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="absolute left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-purple-500 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:scale-125 shadow-lg shadow-purple-500/50" />
                   )}
                 </div>
               </div>

@@ -3,10 +3,38 @@ Learning content for ChainQuest Academy.
 Contains lessons, modules, and quizzes about blockchain.
 """
 
+import json
+import os
 from typing import Dict, List, Any
 
-# Mutable list for dynamically generated modules
-GENERATED_MODULES: List[Dict[str, Any]] = []
+# Path for persisting generated modules
+DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
+GENERATED_MODULES_FILE = os.path.join(DATA_DIR, "generated_modules.json")
+
+
+def _load_generated_modules() -> List[Dict[str, Any]]:
+    """Load generated modules from file."""
+    try:
+        if os.path.exists(GENERATED_MODULES_FILE):
+            with open(GENERATED_MODULES_FILE, "r") as f:
+                return json.load(f)
+    except (json.JSONDecodeError, IOError) as e:
+        print(f"Error loading generated modules: {e}")
+    return []
+
+
+def _save_generated_modules(modules: List[Dict[str, Any]]) -> None:
+    """Save generated modules to file."""
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(GENERATED_MODULES_FILE, "w") as f:
+            json.dump(modules, f, indent=2)
+    except IOError as e:
+        print(f"Error saving generated modules: {e}")
+
+
+# Load generated modules from persistent storage on module import
+GENERATED_MODULES: List[Dict[str, Any]] = _load_generated_modules()
 
 MODULES = [
     {
@@ -810,11 +838,18 @@ Price feeds can be manipulated to exploit protocols.
 
 def get_all_modules() -> List[Dict[str, Any]]:
     """Get all learning modules including generated ones."""
+    # Reload generated modules from file to ensure we have latest data
+    global GENERATED_MODULES
+    GENERATED_MODULES = _load_generated_modules()
     return MODULES + GENERATED_MODULES
 
 
 def add_generated_module(module: Dict[str, Any]) -> None:
-    """Add a dynamically generated module."""
+    """Add a dynamically generated module and persist to file."""
+    global GENERATED_MODULES
+    # Reload from file to get latest data
+    GENERATED_MODULES = _load_generated_modules()
+    
     # Check if module with same ID already exists
     for existing in GENERATED_MODULES:
         if existing["id"] == module["id"]:
@@ -822,10 +857,15 @@ def add_generated_module(module: Dict[str, Any]) -> None:
             GENERATED_MODULES.remove(existing)
             break
     GENERATED_MODULES.append(module)
+    
+    # Persist to file
+    _save_generated_modules(GENERATED_MODULES)
 
 
 def get_module(module_id: str) -> Dict[str, Any]:
     """Get a specific module by ID."""
+    global GENERATED_MODULES
+    GENERATED_MODULES = _load_generated_modules()
     all_modules = MODULES + GENERATED_MODULES
     for module in all_modules:
         if module["id"] == module_id:
@@ -835,6 +875,8 @@ def get_module(module_id: str) -> Dict[str, Any]:
 
 def get_lesson(lesson_id: str) -> Dict[str, Any]:
     """Get a specific lesson by ID."""
+    global GENERATED_MODULES
+    GENERATED_MODULES = _load_generated_modules()
     all_modules = MODULES + GENERATED_MODULES
     for module in all_modules:
         for lesson in module["lessons"]:
@@ -845,6 +887,8 @@ def get_lesson(lesson_id: str) -> Dict[str, Any]:
 
 def get_all_lessons() -> List[Dict[str, Any]]:
     """Get all lessons across all modules."""
+    global GENERATED_MODULES
+    GENERATED_MODULES = _load_generated_modules()
     lessons = []
     all_modules = MODULES + GENERATED_MODULES
     for module in all_modules:

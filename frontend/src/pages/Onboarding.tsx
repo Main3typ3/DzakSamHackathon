@@ -101,12 +101,12 @@ export default function Onboarding() {
 
       <div className="relative max-w-4xl w-full">
         {/* Main content */}
-        <div className="bg-slate-800/50 backdrop-blur-lg rounded-3xl p-8 md:p-12 border border-purple-500/20 card-glow">
+        <div className="bg-slate-800/50 backdrop-blur-lg rounded-3xl p-8 md:p-12 border border-purple-500/20 card-glow animate-fade-in-up">
           {/* Skip button */}
           {!isLastStep && (
             <button
               onClick={handleSkip}
-              className="absolute top-6 right-6 text-gray-400 hover:text-white transition-colors text-sm"
+              className="absolute top-6 right-6 text-gray-400 hover:text-white transition-all duration-300 text-sm hover:scale-110"
             >
               Skip
             </button>
@@ -115,7 +115,7 @@ export default function Onboarding() {
           {/* Icon with gradient */}
           <div className="flex justify-center mb-8">
             <div 
-              className={`inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r ${step.gradient} rounded-2xl text-white transform transition-all duration-500 hover:scale-110`}
+              className={`inline-flex items-center justify-center w-28 h-28 bg-gradient-to-r ${step.gradient} rounded-2xl text-white transform transition-all duration-500 hover:scale-110 shadow-lg animate-bounce-in`}
               key={currentStep}
             >
               {step.icon}
@@ -124,10 +124,10 @@ export default function Onboarding() {
 
           {/* Content */}
           <div className="text-center mb-12 transition-all duration-500" key={`content-${currentStep}`}>
-            <h1 className="text-4xl md:text-5xl font-bold text-gradient mb-6">
+            <h1 className="text-4xl md:text-5xl font-bold text-gradient mb-6 animate-fade-in-up animation-delay-100">
               {step.title}
             </h1>
-            <p className="text-lg md:text-xl text-gray-300 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-lg md:text-xl text-gray-300 max-w-2xl mx-auto leading-relaxed animate-fade-in-up animation-delay-200">
               {step.description}
             </p>
           </div>
@@ -138,10 +138,12 @@ export default function Onboarding() {
               <button
                 key={index}
                 onClick={() => setCurrentStep(index)}
-                className={`h-2 rounded-full transition-all duration-300 ${
+                className={`h-3 rounded-full transition-all duration-500 ${
                   index === currentStep
-                    ? 'w-8 bg-gradient-to-r from-purple-600 to-pink-600'
-                    : 'w-2 bg-gray-600 hover:bg-gray-500'
+                    ? 'w-10 bg-gradient-to-r from-purple-600 to-pink-600 shadow-lg shadow-purple-500/30'
+                    : index < currentStep
+                    ? 'w-3 bg-purple-500/50'
+                    : 'w-3 bg-gray-600 hover:bg-gray-500'
                 }`}
               />
             ))}
@@ -149,28 +151,29 @@ export default function Onboarding() {
 
           {/* Navigation */}
           {isLastStep ? (
-            <div className="space-y-4">
+            <div className="space-y-4 animate-fade-in-up animation-delay-300">
               <button
                 onClick={handleGetStarted}
                 disabled={loading}
-                className="w-full flex items-center justify-center space-x-3 bg-white hover:bg-gray-100 text-gray-900 font-semibold py-4 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center space-x-3 bg-white hover:bg-gray-100 text-gray-900 font-semibold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed group relative overflow-hidden shadow-lg"
               >
-                <Chrome className="w-5 h-5" />
-                <span>{loading ? 'Loading...' : 'Sign in with Google'}</span>
+                <span className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-500/10 to-purple-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
+                <Chrome className="w-6 h-6" />
+                <span className="text-lg">{loading ? 'Loading...' : 'Sign in with Google'}</span>
               </button>
               <p className="text-center text-sm text-gray-400">
-                Start your blockchain journey today
+                🚀 Start your blockchain journey today
               </p>
             </div>
           ) : (
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between animate-fade-in-up animation-delay-300">
               <button
                 onClick={handleBack}
                 disabled={currentStep === 0}
-                className={`flex items-center space-x-2 px-6 py-3 rounded-lg transition-all ${
+                className={`flex items-center space-x-2 px-6 py-3 rounded-lg transition-all duration-300 ${
                   currentStep === 0
                     ? 'opacity-0 pointer-events-none'
-                    : 'text-gray-400 hover:text-white hover:bg-slate-700/50'
+                    : 'text-gray-400 hover:text-white hover:bg-slate-700/50 hover:-translate-x-1'
                 }`}
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -178,10 +181,11 @@ export default function Onboarding() {
               </button>
               <button
                 onClick={handleNext}
-                className="flex items-center space-x-2 btn-primary"
+                className="flex items-center space-x-2 btn-primary group relative overflow-hidden"
               >
+                <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
                 <span>Next</span>
-                <ArrowRight className="w-5 h-5" />
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
           )}
